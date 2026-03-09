@@ -1,0 +1,7 @@
+services:
+  peer2peer:
+    build:
+      context: .
+      dockerfile: node.dockerfile
+    image: peer2peer:latest
+    container_name: peer2peer-node

@@ -1,0 +1,141 @@
+@startuml network_overview
+!pragma layout smetana
+
+title P2P Network — System Overview
+
+skinparam rectangle {
+  BackgroundColor #F8F9FA
+  BorderColor #666666
+  FontSize 11
+}
+skinparam database {
+  FontSize 10
+}
+skinparam note {
+  FontSize 10
+}
+skinparam ArrowColor #555555
+
+' ─────────────────────────────────────────────────────────────
+' NODES
+' ─────────────────────────────────────────────────────────────
+
+rectangle "**Bootstrap Node**\nID: 0000...0000\nboot.example.com:6881" as Boot #FFE08A
+
+rectangle "**Alice**\nID: a3f1b2c4...\n192.168.1.10:6881" as Alice #AED6F1
+
+rectangle "**Bob**\nID: f8e2a391...\n192.168.1.11:6881" as Bob #A9DFBF
+
+rectangle "**Charlie**\nID: c4d5e6f7...\n10.0.0.20:6881" as Charlie #F5CBA7
+
+rectangle "**Dave**\nID: 1a2b3c4d...\n10.0.0.21:6881" as Dave #D5DBBB
+
+rectangle "**Eve**\nID: 9e8f7a6b...\n10.0.0.22:6881" as Eve #D2B4DE
+
+' ─────────────────────────────────────────────────────────────
+' DHT CONNECTIONS
+' ─────────────────────────────────────────────────────────────
+
+Boot <--> Alice : bootstrap
+Boot <--> Bob   : bootstrap
+Boot <--> Charlie : bootstrap
+
+Alice <--> Bob     : DHT peer
+Alice <--> Charlie : DHT peer
+Bob   <--> Dave    : DHT peer
+Charlie <--> Dave  : DHT peer
+Charlie <--> Eve   : DHT peer
+Dave  <--> Eve     : DHT peer
+
+' ─────────────────────────────────────────────────────────────
+' DHT STORED DATA
+' ─────────────────────────────────────────────────────────────
+
+database "**Alice's Key Bundle**\nIK_A + SPK_A + OPK[1..100]\n@ H(Alice.NodeID)" as AliceKB #AED6F1
+
+database "**Bob's Key Bundle**\nIK_B + SPK_B + OPK[1..100]\n@ H(Bob.NodeID)" as BobKB #A9DFBF
+
+database "**Bob's Mailbox**\nEncrypted msgs (X3DH)\nTTL: 72h\n@ H(Bob.NodeID || mailbox)" as BobMailbox #FADBD8
+
+database "**File Chunks**\nContent-addressed\n@ H(chunk_data)\nReplicated k=20 nodes" as FileChunks #F5CBA7
+
+' Published at join time
+Alice ..> AliceKB   : STORE at join
+Bob   ..> BobKB     : STORE at join
+
+' Alice sends to Bob's mailbox (offline messaging)
+Alice ..> BobMailbox : STORE\n(X3DH encrypted)
+Bob   ..> BobMailbox : FIND_VALUE\n(polls on reconnect)
+
+' File chunks distributed across DHT
+Alice  ..> FileChunks : STORE chunks
+Charlie ..> FileChunks : replicate
+Dave   ..> FileChunks : replicate
+
+' ─────────────────────────────────────────────────────────────
+' NOTES
+' ─────────────────────────────────────────────────────────────
+
+note top of Boot
+  **Well-known entry point**
+  New nodes contact bootstrap
+  to join the DHT network
+end note
+
+note left of Alice
+  **S/Kademlia identity**
+  NodeID = SHA-256(Ed25519 pubkey)
+  Must pass static puzzle at keygen
+  Must pass dynamic puzzle at join
+end note
+
+note bottom of BobMailbox
+  **Offline messaging**
+  Alice encrypts with X3DH
+  using Bob's key bundle.
+  Bob decrypts on reconnect.
+  Each session uses a unique OPK.
+end note
+
+note bottom of FileChunks
+  **File transfer**
+  File → 256KB chunks → STORE by hash
+  Manifest = {filename, [hash₀..hashₙ]}
+  Sender shares manifest_hash via chat
+  Receiver: FIND_VALUE per chunk, verify, reassemble
+end note
+
+@enduml
+
+' ─────────────────────────────────────────────────────────────
+
+@startuml session_handshake
+title Authenticated Session Handshake (Alice -> Bob, both online)
+
+participant "Alice\n[a3f1b2c4]" as Alice
+participant "Bob\n[f8e2a391]" as Bob
+
+== 1. TCP Connect ==
+Alice -> Bob : TCP connect to Bob's endpoint
+
+== 2. Handshake (Noise XX style) ==
+Alice -> Bob : HELLO {\n  node_id, Ed25519_pubkey,\n  ephemeral_X25519_pk,\n  signature = Ed25519_sign(ephemeral_pk)\n}
+Bob -> Bob : verify signature\ncheck SHA-256(pubkey) == node_id
+Bob -> Alice : HELLO {\n  node_id, Ed25519_pubkey,\n  ephemeral_X25519_pk,\n  signature = Ed25519_sign(ephemeral_pk)\n}
+Alice -> Alice : verify signature\ncheck SHA-256(pubkey) == node_id
+
+== 3. Session Key Derivation ==
+Alice -> Alice : shared = X25519(eph_sec_A, eph_pub_B)\ntx_key, rx_key = HKDF(shared)
+Bob -> Bob : shared = X25519(eph_sec_B, eph_pub_A)\nrx_key, tx_key = HKDF(shared)
+
+note over Alice, Bob
+  All subsequent messages:
+  ChaCha20-Poly1305 encrypted + signed Ed25519
+  Double Ratchet for per-message key derivation
+end note
+
+== 4. Authenticated Chat ==
+Alice -> Bob : CHAT { text="Hi Bob!", sig=Ed25519_sign(text||ts) }
+Bob -> Alice : CHAT { text="Hey Alice!", sig=Ed25519_sign(text||ts) }
+
+@enduml
