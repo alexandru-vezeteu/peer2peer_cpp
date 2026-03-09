@@ -1,26 +1,26 @@
-FROM debian:bookworm-slim AS builder
+FROM cgr.dev/chainguard/wolfi-base AS builder
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    g++ \
+RUN apk add --no-cache \
+    build-base \
+    gcc-14 \
     meson \
-    ninja-build \
-    pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+    ninja \
+    pkgconf \
+    openssl-dev
 
 WORKDIR /src
 
 COPY meson.build .
 COPY src/ src/
 
-RUN meson setup build --buildtype=release && \
+RUN CC=gcc-14 CXX=g++-14 meson setup build --buildtype=release && \
     meson compile -C build
 
-FROM debian:bookworm-slim AS runtime
+FROM cgr.dev/chainguard/wolfi-base AS runtime
 
-
+RUN apk add --no-cache libstdc++ openssl
 
 WORKDIR /app
 COPY --from=builder /src/build/p2p .
-
 
 ENTRYPOINT ["./p2p"]
