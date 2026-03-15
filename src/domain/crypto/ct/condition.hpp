@@ -2,7 +2,6 @@
 
 #include <concepts>
 
-
 template<typename T>
 inline constexpr bool is_condition_type = false;
 

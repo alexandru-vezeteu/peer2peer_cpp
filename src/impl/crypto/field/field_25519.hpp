@@ -5,15 +5,35 @@
 #include "ct_optional.hpp"
 #include "choice.hpp"
 
-//aritmetic modulo 2^255 -19
+//aritmetica modulo 2^255 -19
+//proprietati utile:
+// 0.invert() trb sa fie 0
+// a^(p-1) ~  1 (mod p)
+// a^(-1)  ~ a^(p-2) (mod p)
+// 2^255 ~ 19
+// 2^256 ~ 38
+
+//limb3 limb2 limb1 limb0 ordinea
 class field_25519
 {
     std::array<uint64_t, 5> limbs;
-    
+    constexpr field_25519(std::array<uint64_t, 5> aux) : limbs(aux){}
     public:
     static constexpr size_t characteristic_bits = 255;
     static constexpr size_t byte_size = 32;
     static constexpr size_t wide_byte_size = 64;
+
+    //2^255 -1 = 5 * 51 limbs doar biti de 1... si din primul trb de scazut 18 ca sa fie 2^255-19
+    static consteval field_25519 p() {
+        return field_25519{{
+            (static_cast<uint64_t>(1)<<51) -1-18, 
+            (static_cast<uint64_t>(1)<<51) -1, 
+            (static_cast<uint64_t>(1)<<51) -1, 
+            (static_cast<uint64_t>(1)<<51) -1, 
+            (static_cast<uint64_t>(1)<<51) -1
+        }};
+    };
+
     choice is_one() const;
     choice is_zero() const;
     
@@ -30,6 +50,11 @@ class field_25519
     field_25519 operator+(const field_25519 other) const;
     field_25519 operator-(const field_25519 other) const;
     field_25519 operator*(const field_25519 other) const;
+
+    field_25519 operator+(const uint64_t other) const;
+    field_25519 operator-(const uint64_t other) const;
+
+
     field_25519 operator-() const;
     field_25519 square() const;
     field_25519 invert() const;
@@ -38,13 +63,12 @@ class field_25519
     choice operator!=(const field_25519 other) const;
     static consteval field_25519 one()
     {
-        field_25519 p{};
-        p.limbs[0] = 1;
-        return p;
+        
+        return field_25519{{1,0,0,0,0}};
     }
     static consteval field_25519 zero()
     {
-        return {};
+        return field_25519{{0,0,0,0,0}};;
     }
 
 
@@ -97,5 +121,4 @@ class field_25519
 };
 
 static_assert(crypto_field<field_25519, ct_optional<field_25519>, choice>);
-
 

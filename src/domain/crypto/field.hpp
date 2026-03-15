@@ -16,6 +16,7 @@ concept field = optional<O> && requires(const T a, const T b, T mut)
     { a == b }     -> condition;
     { T::zero() }  -> std::same_as<T>;
     { T::one()  }  -> std::same_as<T>;
+    {T::p()} -> std::same_as<T>;
     { a.sqrt()  }  -> std::same_as<O>;
 
     { mut.reduce_inplace() };

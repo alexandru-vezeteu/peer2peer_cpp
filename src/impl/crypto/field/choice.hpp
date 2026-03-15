@@ -20,7 +20,7 @@ struct choice
     	val = static_cast<uint8_t>(0ULL - (is_non_zero ^ 1)) & 0xFF;
 	}
 
-	static constexpr choice choice_from_equal(uint64_t a, uint64_t b)
+	static constexpr choice from_equal(uint64_t a, uint64_t b)
 	{
 		return choice{a-b};
 	}
