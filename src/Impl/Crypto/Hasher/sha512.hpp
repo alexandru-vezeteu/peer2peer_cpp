@@ -3,6 +3,9 @@
 #include <cstdint>
 #include <span>
 
+#include "Domain/Crypto/Hasher/Hasher.hpp"
+
+
 class SHA512 
 {
 	public:
@@ -21,3 +24,5 @@ class SHA512
 		uint64_t bit_len_low;
 		uint64_t bit_len_high;
 };
+
+static_assert(Hasher<SHA512>);

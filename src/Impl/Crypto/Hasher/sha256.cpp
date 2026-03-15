@@ -1,6 +1,5 @@
 #include "sha256.hpp"
-#include "Hasher.hpp"
-static_assert(Hasher<SHA256>);
+
 
 static uint32_t rotr(uint32_t x, uint32_t n) 
 {

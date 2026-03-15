@@ -82,7 +82,7 @@ Expeditorul trimite destinatarului doar `manifest_hash`. Destinatarul il descarc
 
 | Componenta | Tehnologie |
 |---|---|
-| Limbaj | C++20 |
+| Limbaj | C++23 |
 | Async I/O | Boost.Asio + coroutines |
 | Serializare | Protocol Buffers |
 | Criptografie | Implementare proprie (Ed25519, X25519, ChaCha20-Poly1305, SHA-256/512) |

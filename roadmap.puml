@@ -1,0 +1,70 @@
+@startuml
+
+package "Phase 1: Foundation (Math & Networking)" {
+  [Network Base (Boost.Asio)]
+  [Field 25519 (Fp)]
+  [SHA-256]
+  [SHA-512]
+}
+
+package "Phase 2: Core Primitives" {
+  [Curve25519 Math]
+  [ChaCha20-Poly1305]
+}
+
+package "Phase 3: Cryptosystems & DHT Base" {
+  [Ed25519 (Signatures)]
+  [X25519 (Key Exchange)]
+  [DHT Core Routing]
+}
+
+package "Phase 4: Security Features" {
+  [DHT Security Puzzles]
+  [Content Manifests & Chunking]
+  [Noise XX Handshake]
+}
+
+package "Phase 5: Messaging & Transfers" {
+  [X3DH (Offline Messages)]
+  [Encrypted File Transfer]
+}
+
+package "Phase 6: Finalization" {
+  [Double Ratchet]
+  [High-Level Application API]
+}
+
+' Cryptography core dependencies
+[Field 25519 (Fp)] --> [Curve25519 Math]
+[SHA-512] --> [Ed25519 (Signatures)]
+[Curve25519 Math] --> [Ed25519 (Signatures)]
+[Curve25519 Math] --> [X25519 (Key Exchange)]
+
+' Network Base -> DHT
+[Network Base (Boost.Asio)] --> [DHT Core Routing]
+
+' Security & Auth
+[Ed25519 (Signatures)] --> [DHT Security Puzzles]
+[SHA-256] --> [DHT Security Puzzles]
+[DHT Core Routing] --> [DHT Security Puzzles]
+
+' Session Crypto
+[X25519 (Key Exchange)] --> [Noise XX Handshake]
+[Ed25519 (Signatures)] --> [Noise XX Handshake]
+[ChaCha20-Poly1305] --> [Noise XX Handshake]
+
+' File Handling
+[SHA-256] --> [Content Manifests & Chunking]
+[Content Manifests & Chunking] --> [Encrypted File Transfer]
+[DHT Security Puzzles] --> [Encrypted File Transfer]
+
+' Advanced Messaging Protocols
+[DHT Security Puzzles] --> [X3DH (Offline Messages)]
+[Noise XX Handshake] --> [X3DH (Offline Messages)]
+[X3DH (Offline Messages)] --> [Double Ratchet]
+
+' System Integration
+[Double Ratchet] --> [High-Level Application API]
+[Encrypted File Transfer] --> [High-Level Application API]
+
+@enduml

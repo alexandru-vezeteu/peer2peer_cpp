@@ -2,6 +2,8 @@
 #include <array>
 #include <cstdint>
 #include <span>
+
+#include "Domain/Crypto/Hasher/Hasher.hpp"
 class SHA256 
 {
 	public:
@@ -19,3 +21,5 @@ class SHA256
 		size_t buffer_len;
 		uint64_t bit_len;
 };
+
+static_assert(Hasher<SHA256>);

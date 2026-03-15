@@ -1,6 +1,6 @@
 #include "sha512.hpp"
-#include "Hasher.hpp"
-static_assert(Hasher<SHA512>);
+
+
 
 
 
