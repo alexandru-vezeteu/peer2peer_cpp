@@ -4,22 +4,22 @@ project('peer2peer', 'cpp',
 )
 
 crypto_sources = [
-  'src/Crypto/Hasher/sha256.cpp',
-  'src/Crypto/Hasher/sha512.cpp',
+  'src/impl/crypto/hash/sha256.cpp',
+  'src/impl/crypto/hash/sha512.cpp',
 ]
 
-crypto_inc = include_directories('src', 'src/Crypto')
+inc = include_directories('src')
 
 executable('p2p',
   sources : ['src/main.cpp'] + crypto_sources,
-  include_directories : crypto_inc,
+  include_directories : inc,
 )
 
 openssl = dependency('openssl')
 
 test_hasher = executable('THasher',
-  sources : ['src/Tests/THasher.cpp'] + crypto_sources,
-  include_directories : crypto_inc,
+  sources : ['src/tests/crypto/hash_test.cpp'] + crypto_sources,
+  include_directories : inc,
   dependencies : openssl,
 )
 

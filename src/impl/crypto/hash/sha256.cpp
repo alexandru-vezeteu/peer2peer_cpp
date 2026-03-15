@@ -1,31 +1,30 @@
 #include "sha256.hpp"
 
-
-static uint32_t rotr(uint32_t x, uint32_t n) 
+static uint32_t rotr(uint32_t x, uint32_t n)
 {
     return (x >> n) | (x << (32 - n));
 }
-static uint32_t choice(uint32_t x, uint32_t y, uint32_t z) 
+static uint32_t choice(uint32_t x, uint32_t y, uint32_t z)
 {
     return (x & y) ^ (~x & z);
 }
-static uint32_t majority(uint32_t x, uint32_t y, uint32_t z) 
+static uint32_t majority(uint32_t x, uint32_t y, uint32_t z)
 {
     return (x & y) ^ (x & z) ^ (y & z);
 }
-static uint32_t sig0(uint32_t x) 
-{ 
-    return rotr(x, 7) ^ rotr(x, 18) ^ (x >> 3); 
+static uint32_t sig0(uint32_t x)
+{
+    return rotr(x, 7) ^ rotr(x, 18) ^ (x >> 3);
 }
-static uint32_t sig1(uint32_t x) 
+static uint32_t sig1(uint32_t x)
 {
     return rotr(x, 17) ^ rotr(x, 19) ^ (x >> 10);
 }
-static uint32_t SIG0(uint32_t x) 
+static uint32_t SIG0(uint32_t x)
 {
     return rotr(x, 2) ^ rotr(x, 13) ^ rotr(x, 22);
 }
-static uint32_t SIG1(uint32_t x) 
+static uint32_t SIG1(uint32_t x)
 {
     return rotr(x, 6) ^ rotr(x, 11) ^ rotr(x, 25);
 }
@@ -45,7 +44,7 @@ static const uint32_t K256[64] = {
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-SHA256::SHA256() : buffer_len(0), bit_len(0) 
+SHA256::SHA256() : buffer_len(0), bit_len(0)
 {
     state[0] = 0x6a09e667;
     state[1] = 0xbb67ae85;
@@ -57,18 +56,18 @@ SHA256::SHA256() : buffer_len(0), bit_len(0)
     state[7] = 0x5be0cd19;
 }
 
-void SHA256::transform(const uint8_t *block) 
+void SHA256::transform(const uint8_t* block)
 {
     uint32_t w[64];
-    for (int i = 0; i < 16; ++i) 
+    for (int i = 0; i < 16; ++i)
     {
-        w[i] =  (static_cast<uint32_t>(block[i * 4]) << 24)     |
-                (static_cast<uint32_t>(block[i * 4 + 1]) << 16) |
-                (static_cast<uint32_t>(block[i * 4 + 2]) << 8)  |
-                (static_cast<uint32_t>(block[i * 4 + 3]));
+        w[i] = (static_cast<uint32_t>(block[i * 4])     << 24) |
+               (static_cast<uint32_t>(block[i * 4 + 1]) << 16) |
+               (static_cast<uint32_t>(block[i * 4 + 2]) << 8)  |
+               (static_cast<uint32_t>(block[i * 4 + 3]));
     }
 
-    for (int i = 16; i < 64; ++i) 
+    for (int i = 16; i < 64; ++i)
     {
         w[i] = sig1(w[i - 2]) + w[i - 7] + sig0(w[i - 15]) + w[i - 16];
     }
@@ -76,35 +75,24 @@ void SHA256::transform(const uint8_t *block)
     uint32_t a = state[0], b = state[1], c = state[2], d = state[3];
     uint32_t e = state[4], f = state[5], g = state[6], h = state[7];
 
-    for (int i = 0; i < 64; ++i) 
+    for (int i = 0; i < 64; ++i)
     {
         uint32_t t1 = h + SIG1(e) + choice(e, f, g) + K256[i] + w[i];
         uint32_t t2 = SIG0(a) + majority(a, b, c);
-        h = g;
-        g = f;
-        f = e;
-        e = d + t1;
-        d = c;
-        c = b;
-        b = a;
-        a = t1 + t2;
+        h = g; g = f; f = e; e = d + t1;
+        d = c; c = b; b = a; a = t1 + t2;
     }
 
-    state[0] += a;
-    state[1] += b;
-    state[2] += c;
-    state[3] += d;
-    state[4] += e;
-    state[5] += f;
-    state[6] += g;
-    state[7] += h;
+    state[0] += a; state[1] += b; state[2] += c; state[3] += d;
+    state[4] += e; state[5] += f; state[6] += g; state[7] += h;
 }
 
-void SHA256::update(std::span<const uint8_t> data) {
-    for (uint8_t b : data) 
+void SHA256::update(std::span<const uint8_t> data)
+{
+    for (uint8_t b : data)
     {
         buffer[buffer_len++] = b;
-        if (buffer_len == 64) 
+        if (buffer_len == 64)
         {
             transform(buffer);
             bit_len += 512;
@@ -113,58 +101,41 @@ void SHA256::update(std::span<const uint8_t> data) {
     }
 }
 
-std::array<uint8_t, 32> SHA256::finalize() {
+std::array<uint8_t, 32> SHA256::finalize()
+{
     uint64_t total_bits = bit_len + (static_cast<uint64_t>(buffer_len) * 8);
 
     buffer[buffer_len++] = 0x80;
 
-    if (buffer_len > 56) 
+    if (buffer_len > 56)
     {
-        while (buffer_len < 64) 
-        {
-            buffer[buffer_len++] = 0x00;
-        }
+        while (buffer_len < 64) buffer[buffer_len++] = 0x00;
         transform(buffer);
         buffer_len = 0;
     }
 
-    while (buffer_len < 56) 
-    {
-        buffer[buffer_len++] = 0x00;
-    }
+    while (buffer_len < 56) buffer[buffer_len++] = 0x00;
 
-    for (int i = 0; i < 8; ++i) 
-    {
+    for (int i = 0; i < 8; ++i)
         buffer[63 - i] = static_cast<uint8_t>(total_bits >> (i * 8));
-    }
 
     transform(buffer);
 
     std::array<uint8_t, 32> digest;
-    for (int i = 0; i < 8; ++i) 
+    for (int i = 0; i < 8; ++i)
     {
-        digest[i * 4] = static_cast<uint8_t>(state[i] >> 24);
+        digest[i * 4]     = static_cast<uint8_t>(state[i] >> 24);
         digest[i * 4 + 1] = static_cast<uint8_t>(state[i] >> 16);
         digest[i * 4 + 2] = static_cast<uint8_t>(state[i] >> 8);
         digest[i * 4 + 3] = static_cast<uint8_t>(state[i]);
     }
 
-    //reset
-    this->buffer_len = 0;
-    this->bit_len = 0;
-    this->state[0] = 0x6a09e667;
-    this->state[1] = 0xbb67ae85;
-    this->state[2] = 0x3c6ef372;
-    this->state[3] = 0xa54ff53a;
-    this->state[4] = 0x510e527f;
-    this->state[5] = 0x9b05688c;
-    this->state[6] = 0x1f83d9ab;
-    this->state[7] = 0x5be0cd19;
-
+    *this = SHA256();
     return digest;
 }
+
 std::array<uint8_t, 32> SHA256::hash(std::span<const uint8_t> data)
- {
+{
     SHA256 h;
     h.update(data);
     return h.finalize();
