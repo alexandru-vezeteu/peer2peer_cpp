@@ -5,8 +5,10 @@
 #include "optional.hpp"
 
 template<typename T>
-concept ct_serializable = requires(const T a, const std::array<uint8_t, T::byte_size>      bytes,
-                                              const std::array<uint8_t, T::wide_byte_size> wide_bytes)
+concept ct_serializable = requires(
+        std::remove_cvref_t<T> a,
+        const std::array<uint8_t, T::byte_size>      bytes,
+        const std::array<uint8_t, T::wide_byte_size> wide_bytes)
 {
     { std::integral_constant<std::size_t, T::byte_size>{}      };
     { std::integral_constant<std::size_t, T::wide_byte_size>{}  };

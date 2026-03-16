@@ -23,8 +23,8 @@ concept field = optional<O> && requires(const T a, const T b, T mut)
     { a.reduce() } ->std::same_as<T>;
 };
 
-template<optional O, field<O> T>
-[[nodiscard]] T operator/(const T& a, const T& b) noexcept
-{
+template<typename T>
+requires field<T, decltype(std::declval<T>().sqrt())>
+[[nodiscard]] T operator/(const T& a, const T& b) noexcept {
     return a * b.invert();
 }

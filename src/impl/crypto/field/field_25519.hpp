@@ -2,8 +2,8 @@
 
 #include "domain/crypto/crypto_field.hpp"
 
-#include "ct_optional.hpp"
-#include "choice.hpp"
+#include "impl/crypto/util/ct_optional.hpp"
+#include "impl/crypto/util/choice.hpp"
 
 //aritmetica modulo 2^255 -19
 //proprietati utile:
@@ -84,11 +84,92 @@ class field_25519
         return ret;
     }
 
+    //if c swap(a,b)
+    static constexpr void ct_swap(field_25519& a, field_25519& b, choice c)
+    {
+       
+        uint64_t mask = c.mask();
+        for(size_t i = 0; i < 5; ++i)
+        {
+            a.limbs[i] = (a.limbs[i] & ~mask) | (b.limbs[i] & mask);
+            b.limbs[i] = (a.limbs[i] & mask) | (b.limbs[i] & ~mask);
+        }
+
+    }
+
+    static constexpr void ct_swap(field_25519& a, field_25519& b)
+    {
+       
+        
+        for(size_t i = 0; i < 5; ++i)
+        {
+            a.limbs[i] = a.limbs[i] ^ b.limbs[i];
+            b.limbs[i] = a.limbs[i] ^ b.limbs[i];
+            a.limbs[i] = a.limbs[i] ^ b.limbs[i];
+        }
+
+    }
+
     //trick ca sa pacalesti compilatorul.. ca altfel nu merge ca vede field25519 in mijlocul parsarii 25519
     template<typename T = field_25519>
-    ct_optional<T> sqrt() const
+    constexpr ct_optional<T> sqrt() const
     {
-        return ct_optional<T>::none();
+        //e complicat of
+
+        //https://en.wikipedia.org/wiki/Tonelli%E2%80%93Shanks_algorithm
+
+        auto sq_n = [](field_25519 x, int n) {
+            for (int i = 0; i < n; ++i) x = x.square();
+            return x;
+        };
+        
+        //z^0
+        field_25519 z        = *this;
+        
+        //z^2
+        field_25519 z2       = z.square();
+
+        //(z^2)^2^2 *z=z^8 *z = z^9
+        field_25519 z9       = sq_n(z2, 2) * z;
+
+        //z^11
+        field_25519 z11      = z9 * z2;
+
+        //z^22*z^9=z^31 = (z^(2^5 -1) )
+        field_25519 z2_5   = z11.square() * z9;
+
+        //z^31^2... *z31 = z^(31*2^5+31) = z^1023 = z^(2^10-1)
+        field_25519 z2_10  = sq_n(z2_5,   5) * z2_5;
+
+        
+        field_25519 z2_20  = sq_n(z2_10, 10) * z2_10;
+        field_25519 z2_40  = sq_n(z2_20, 20) * z2_20;
+        field_25519 z2_50  = sq_n(z2_40, 10) * z2_10;
+        field_25519 z2_100 = sq_n(z2_50,  50) * z2_50;
+        field_25519 z2_200 = sq_n(z2_100, 100) * z2_100;
+        field_25519 z2_250 = sq_n(z2_200, 50) * z2_50;
+
+        //a^(p+3)/8 = (2^255-19+3)/8 = (2^255-16)/8 = 2^252-2
+        field_25519 a = sq_n(z2_250, 2) * z2;
+        field_25519 a_2 = a.square();
+        //daca a_2 == x ok daca a_2 == -x mai trb facut cv else return none()..
+
+        choice are_equal =  a_2 == z;
+        field_25519 _z = -z;
+        choice are_equal_neq = a_2 == -z;
+
+        /*
+            if(are_equal) return a;
+            if(are_equal_neq) return a*... sqrt(-1?);
+            return none();
+        
+        */
+
+        return ct_optional<field_25519>::none();
+
+
+        
+        
     }
 
     template<typename T = field_25519>

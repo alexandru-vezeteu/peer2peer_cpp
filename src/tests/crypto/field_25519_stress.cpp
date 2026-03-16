@@ -25,6 +25,7 @@ int main()
 	auto one  = field_25519::one();
 	auto p    = field_25519::p();
 
+
 	// --- every value in [p, p+18] must reduce to [0, 18] ---
 	for (uint64_t i = 0; i <= 18; ++i) {
 		auto label = std::format("(p + {}) == {}", i, i);
