@@ -17,11 +17,12 @@ struct ct_optional
         return T::ct_select(value, fallback, valid);
     }
 
-    [[nodiscard]] choice is_some_public() const noexcept { return valid; }
+    [[nodiscard]] bool is_some_public() const noexcept { return valid.unwrap_public(); }
 
     using value_type = T;
 
 private:
+    ct_optional(T v, choice c) noexcept : value(std::move(v)), valid(c) {}
     T      value;
     choice valid;
 };

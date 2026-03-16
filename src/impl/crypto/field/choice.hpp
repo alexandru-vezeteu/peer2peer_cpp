@@ -10,6 +10,11 @@ struct choice
 	constexpr choice operator&&(choice o) const noexcept { return choice(uint8_t(val & o.val)); }
 	constexpr choice operator||(choice o) const noexcept { return choice(uint8_t(val | o.val)); }
 
+	constexpr uint64_t mask()
+	{
+		return static_cast<uint64_t>(static_cast<int64_t>(static_cast<int8_t>(val)));
+	}
+
 	//val == 0 => true dar  fac la fel de multe operatii indiferent de biti
 	explicit constexpr choice(uint64_t diff) noexcept
 	{
@@ -33,7 +38,6 @@ struct choice
 		return choice{ value };
 	}
 
-    /// Constant-time: returns TRUE iff value != 0.
     static constexpr choice from_nonzero(uint64_t value) noexcept
     {
         return !choice{ value };
