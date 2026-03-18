@@ -1,7 +1,7 @@
 #pragma once
 #include <concepts>
 #include <cstdint>
-#include "ct/condition.hpp"
+#include "domain/crypto/ct/condition.hpp"
 
 template<typename T>
 concept group = requires(const T a, const T b, const uint64_t k)

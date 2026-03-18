@@ -58,8 +58,8 @@ int main()
 	                               (one+1u)+((one+2u)+(one+3u))));
 
 	// --- ct_select ---
-	TEST("ct_select(a,b,true)==a",  EQ(field_25519::ct_select(one+3u, one+7u, choice::true_choice()),  one+3u));
-	TEST("ct_select(a,b,false)==b", EQ(field_25519::ct_select(one+3u, one+7u, choice::false_choice()), one+7u));
+	TEST("ct_select(a,b,true)==a",  EQ(ct_select(one+3u, one+7u, choice::true_choice()),  one+3u));
+	TEST("ct_select(a,b,false)==b", EQ(ct_select(one+3u, one+7u, choice::false_choice()), one+7u));
 
 	// --- to_bytes: known byte patterns ---
 	// 0 → all zero bytes
@@ -148,6 +148,47 @@ int main()
 	// non-canonical round-trips
 	TEST("to_bytes(p) → from_bytes → 0",   EQ(field_25519::from_bytes(p.to_bytes()).value_or(one), zero));
 	TEST("to_bytes(p+1) → from_bytes → 1", EQ(field_25519::from_bytes((p + 1u).to_bytes()).value_or(zero), one));
+
+	// --- sqrt ---
+	// 0 has a sqrt (itself)
+	TEST("sqrt(0) is some",    sqrt(zero).is_some_public());
+	TEST("sqrt(0)^2 == 0",     EQ(sqrt(zero).value_or(one).square().reduce(), zero));
+
+	// 1 has a sqrt (itself)
+	TEST("sqrt(1) is some",    sqrt(one).is_some_public());
+	TEST("sqrt(1)^2 == 1",     EQ(sqrt(one).value_or(zero).square().reduce(), one));
+
+	// 4 = 2^2, sqrt should be 2
+	{
+		auto two  = one + 1u;
+		auto four = two * two;
+		auto s    = sqrt(four);
+		TEST("sqrt(4) is some",  s.is_some_public());
+		TEST("sqrt(4)^2 == 4",   EQ(s.value_or(zero).square().reduce(), four.reduce()));
+	}
+
+	// 9 = 3^2
+	{
+		auto three = one + 2u;
+		auto nine  = three * three;
+		auto s     = sqrt(nine);
+		TEST("sqrt(9) is some",  s.is_some_public());
+		TEST("sqrt(9)^2 == 9",   EQ(s.value_or(zero).square().reduce(), nine.reduce()));
+	}
+
+	// 2 is not a QR mod p (Euler: 2^((p-1)/2) = -1 mod p)
+	TEST("sqrt(2) is none", !sqrt(one + 1u).is_some_public());
+
+	// generic QR: any x^2 must have a sqrt
+	for (uint64_t v : {3ull, 5ull, 7ull, 13ull, 100ull, (1ull << 16)}) {
+		auto x   = one + v;
+		auto x2  = x.square();
+		auto s   = sqrt(x2);
+		auto lbl = std::format("sqrt({}^2) is some", v+1);
+		TEST(lbl, s.is_some_public());
+		auto lbl2 = std::format("sqrt({}^2)^2 == {}^2", v+1, v+1);
+		TEST(lbl2, EQ(s.value_or(zero).square().reduce(), x2.reduce()));
+	}
 
 	std::println("\n{} passed, {} failed", passed, failed);
 	return failed == 0 ? 0 : 1;

@@ -182,6 +182,8 @@ field_25519 field_25519::square() const
 
 
 
+
+
 //a^p-1 = 1 => a^p-2 = a^-1 =>
 //a^(2^255 -19-2) = a^(2^255 - 21)
 field_25519 field_25519::invert() const
@@ -326,3 +328,46 @@ const std::array<uint8_t, field_25519::byte_size> field_25519::to_bytes() const
 	ret[31] = (l[4] >> 44) & 0x7F;          
 	return ret;
 }
+
+//c? a : b
+field_25519 ct_select(field_25519 a, field_25519 b, choice c)
+{
+	field_25519 ret{};
+	uint64_t mask = c.mask();
+	for(size_t i = 0; i < 5; ++i)
+	{
+		ret.limbs[i] = (a.limbs[i] & mask) | (b.limbs[i] & ~mask);
+	}
+	return ret;
+}
+
+
+//if c swap(a,b)
+void ct_swap(field_25519& a, field_25519& b, choice c)
+{
+	
+	uint64_t mask = c.mask();
+	for(size_t i = 0; i < 5; ++i)
+	{
+		uint64_t aux1 = a.limbs[i];
+		uint64_t aux2 = b.limbs[i];
+		a.limbs[i] = (aux1 & ~mask) | (aux2 & mask);
+		b.limbs[i] = (aux1 & mask) | (aux2 & ~mask);
+	}
+
+}
+void ct_swap(field_25519& a, field_25519& b)
+{
+	for(size_t i = 0; i < 5; ++i)
+	{
+		a.limbs[i] = a.limbs[i] ^ b.limbs[i];
+		b.limbs[i] = a.limbs[i] ^ b.limbs[i];
+		a.limbs[i] = a.limbs[i] ^ b.limbs[i];
+	}
+
+}
+
+
+    //trick ca sa pacalesti compilatorul.. ca altfel nu merge ca vede field25519 in mijlocul parsarii 25519
+    
+    

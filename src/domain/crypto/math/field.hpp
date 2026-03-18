@@ -1,12 +1,12 @@
 #pragma once
 #include <concepts>
-#include "ct/optional.hpp"
-#include "ct/condition.hpp"
+#include "domain/crypto/ct/optional.hpp"
+#include "domain/crypto/ct/condition.hpp"
 
 template<typename T, typename O>
-concept field = optional<O> && requires(const T a, const T b, T mut)
+concept field = optional<O> && requires(std::remove_cvref_t<T> a, std::remove_cvref_t<T> b, std::remove_cvref_t<T> mut)
 {
-    { std::integral_constant<std::size_t, T::characteristic_bits>{} };
+    
     { a + b }      -> std::same_as<T>;
     { a - b }      -> std::same_as<T>;
     { a * b }      -> std::same_as<T>;
@@ -16,11 +16,10 @@ concept field = optional<O> && requires(const T a, const T b, T mut)
     { a == b }     -> condition;
     { T::zero() }  -> std::same_as<T>;
     { T::one()  }  -> std::same_as<T>;
-    {T::p()} -> std::same_as<T>;
-    { a.sqrt()  }  -> std::same_as<O>;
+    { T::p() } -> std::same_as<T>;
+    
 
-    { mut.reduce_inplace() };
-    { a.reduce() } ->std::same_as<T>;
+
 };
 
 template<typename T>

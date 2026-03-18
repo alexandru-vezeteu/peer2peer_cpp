@@ -8,5 +8,5 @@ concept ct_selectable = condition<R> && requires(
     std::remove_cvref_t<T> b,
     std::remove_cvref_t<R> c)
 {
-    { T::ct_select(a, b, c) } -> std::same_as<decltype(a)>;
+    { ct_select(a, b, c) } -> std::same_as<decltype(a)>;
 };

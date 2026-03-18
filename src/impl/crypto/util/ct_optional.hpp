@@ -9,20 +9,21 @@ template<typename T>
 requires std::default_initializable<T> && ct_selectable<T, choice>
 struct ct_optional
 {
-    static ct_optional some(T v) noexcept { return { std::move(v), choice::true_choice()  }; }
-    static ct_optional none()    noexcept { return { T{},          choice::false_choice() }; }
+    static ct_optional some(T v)              noexcept { return ct_optional( std::move(v), choice::true_choice()  ); }
+    static ct_optional none()                 noexcept { return ct_optional( T{},          choice::false_choice() ); }
+    static ct_optional from_choice(T v, choice c) noexcept { return ct_optional( std::move(v), c ); }
 
     [[nodiscard]] T value_or(T fallback) const noexcept
     {
-        return T::ct_select(value, fallback, valid);
+        return ct_select(value, fallback, valid);
     }
 
     [[nodiscard]] bool is_some_public() const noexcept { return valid.unwrap_public(); }
 
     using value_type = T;
-
+    
 private:
-    ct_optional(T v, choice c) noexcept : value(std::move(v)), valid(c) {}
+    explicit ct_optional(T v, choice c) noexcept : value(std::move(v)), valid(c) {}
     T      value;
     choice valid;
 };

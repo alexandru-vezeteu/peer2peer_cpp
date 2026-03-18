@@ -8,7 +8,7 @@ concept ct_swappable = condition<R> && requires(
     std::remove_cvref_t<T> b,
     R c)
 {
-    { std::remove_cvref_t<T>::ct_swap(a, b, c) };
-    { std::remove_cvref_t<T>::ct_swap(a, b) };
+    { ct_swap(a, b, c) };
+    { ct_swap(a, b) };
 
 };

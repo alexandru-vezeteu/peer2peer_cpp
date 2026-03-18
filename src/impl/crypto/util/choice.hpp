@@ -14,7 +14,7 @@ struct choice
 	{
 		return static_cast<uint64_t>(static_cast<int64_t>(static_cast<int8_t>(val)));
 	}
-
+ 
 	//val == 0 => true dar  fac la fel de multe operatii indiferent de biti
 	explicit constexpr choice(uint64_t diff) noexcept
 	{

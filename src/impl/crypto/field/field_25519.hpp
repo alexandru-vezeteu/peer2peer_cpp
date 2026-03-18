@@ -1,23 +1,27 @@
 #pragma once
 
 #include "domain/crypto/crypto_field.hpp"
+#include "domain/crypto/math/quadratic_residue.hpp"
 
 #include "impl/crypto/util/ct_optional.hpp"
 #include "impl/crypto/util/choice.hpp"
 
-//aritmetica modulo 2^255 -19
+//aritmetica modulo 2^255 - 19
 //proprietati utile:
 // 0.invert() trb sa fie 0
 // a^(p-1) ~  1 (mod p)
 // a^(-1)  ~ a^(p-2) (mod p)
 // 2^255 ~ 19
 // 2^256 ~ 38
+class field_25519;
 
-//limb3 limb2 limb1 limb0 ordinea
+
 class field_25519
 {
     std::array<uint64_t, 5> limbs;
     constexpr field_25519(std::array<uint64_t, 5> aux) : limbs(aux){}
+    
+    
     public:
     static constexpr size_t characteristic_bits = 255;
     static constexpr size_t byte_size = 32;
@@ -50,127 +54,105 @@ class field_25519
     field_25519 operator+(const field_25519 other) const;
     field_25519 operator-(const field_25519 other) const;
     field_25519 operator*(const field_25519 other) const;
-
-    field_25519 operator+(const uint64_t other) const;
-    field_25519 operator-(const uint64_t other) const;
-
-
     field_25519 operator-() const;
+    constexpr field_25519 reduce() const
+    {
+        field_25519 ret = *this;
+        ret.reduce_inplace();
+        return ret;
+    }
+
+    constexpr void reduce_inplace()
+    {
+        constexpr uint64_t mask = (static_cast<uint64_t>(1) << 51) - 1;
+        
+        for (size_t i = 0; i < 4; ++i) {
+            limbs[i+1] += limbs[i] >> 51;
+            limbs[i] &= mask;
+        }
+        
+        limbs[0] += (limbs[4] >> 51) * 19;
+        limbs[4] &= mask;
+        
+        for (size_t i = 0; i < 4; ++i) {
+            limbs[i+1] += limbs[i] >> 51;
+            limbs[i] &= mask;
+        }
+        
+        // operatorul == apeleaza asta in spate
+        auto eq_raw = [](const field_25519& a, const field_25519& b)
+        {
+            return  choice::from_equal(a.limbs[0], b.limbs[0]) &&
+                    choice::from_equal(a.limbs[1], b.limbs[1]) &&
+                    choice::from_equal(a.limbs[2], b.limbs[2]) &&
+                    choice::from_equal(a.limbs[3], b.limbs[3]) &&
+                    choice::from_equal(a.limbs[4], b.limbs[4]);
+        };
+
+
+        // this e in  [0, 2^255)
+        // valorile din [p, p+18] -> [0, 18]
+        choice any_hit = choice::false_choice();
+        field_25519 canonical{};
+        for (uint64_t i = 0; i <= 18; ++i)
+        {
+            choice hit = eq_raw(*this, p()+ i);
+            canonical = ct_select(field_25519::zero()+ i, canonical, hit);
+            any_hit = any_hit || hit;
+        }
+        *this = ct_select(canonical, *this, any_hit);
+
+        
+        
+    }
+    
+    
+
+
+
+
     field_25519 square() const;
     field_25519 invert() const;
     
     choice operator==(const field_25519 other) const;
     choice operator!=(const field_25519 other) const;
 
-    static consteval field_25519 one()
+    static constexpr field_25519 one()
     {
         return field_25519{{1,0,0,0,0}};
     }
-    static consteval field_25519 zero()
+    static constexpr field_25519 zero()
     {
         return field_25519{{0,0,0,0,0}};;
     }
 
-
-    //c? a : b
-    static constexpr field_25519 ct_select(field_25519 a, field_25519 b, choice c)
+    static constexpr field_25519 i()
     {
-        field_25519 ret{};
-        uint64_t mask = c.mask();
-        for(size_t i = 0; i < 5; ++i)
-        {
-            ret.limbs[i] = (a.limbs[i] & mask) | (b.limbs[i] & ~mask);
-        }
-        return ret;
-    }
-
-    //if c swap(a,b)
-    static constexpr void ct_swap(field_25519& a, field_25519& b, choice c)
-    {
-       
-        uint64_t mask = c.mask();
-        for(size_t i = 0; i < 5; ++i)
-        {
-            a.limbs[i] = (a.limbs[i] & ~mask) | (b.limbs[i] & mask);
-            b.limbs[i] = (a.limbs[i] & mask) | (b.limbs[i] & ~mask);
-        }
-
-    }
-
-    static constexpr void ct_swap(field_25519& a, field_25519& b)
-    {
-       
-        
-        for(size_t i = 0; i < 5; ++i)
-        {
-            a.limbs[i] = a.limbs[i] ^ b.limbs[i];
-            b.limbs[i] = a.limbs[i] ^ b.limbs[i];
-            a.limbs[i] = a.limbs[i] ^ b.limbs[i];
-        }
-
-    }
-
-    //trick ca sa pacalesti compilatorul.. ca altfel nu merge ca vede field25519 in mijlocul parsarii 25519
-    template<typename T = field_25519>
-    constexpr ct_optional<T> sqrt() const
-    {
-        //e complicat of
-
-        //https://en.wikipedia.org/wiki/Tonelli%E2%80%93Shanks_algorithm
-
         auto sq_n = [](field_25519 x, int n) {
-            for (int i = 0; i < n; ++i) x = x.square();
+            for (int i = 0; i < n; ++i) 
+                x = x.square();
+
             return x;
         };
-        
-        //z^0
-        field_25519 z        = *this;
-        
-        //z^2
-        field_25519 z2       = z.square();
 
-        //(z^2)^2^2 *z=z^8 *z = z^9
-        field_25519 z9       = sq_n(z2, 2) * z;
-
-        //z^11
-        field_25519 z11      = z9 * z2;
-
-        //z^22*z^9=z^31 = (z^(2^5 -1) )
+        field_25519 z      = field_25519::one() + field_25519::one();
+        field_25519 z2     = z.square();
+        field_25519 z9     = sq_n(z2, 2) * z;
+        field_25519 z11    = z9 * z2;
         field_25519 z2_5   = z11.square() * z9;
-
-        //z^31^2... *z31 = z^(31*2^5+31) = z^1023 = z^(2^10-1)
         field_25519 z2_10  = sq_n(z2_5,   5) * z2_5;
-
-        
         field_25519 z2_20  = sq_n(z2_10, 10) * z2_10;
         field_25519 z2_40  = sq_n(z2_20, 20) * z2_20;
         field_25519 z2_50  = sq_n(z2_40, 10) * z2_10;
         field_25519 z2_100 = sq_n(z2_50,  50) * z2_50;
         field_25519 z2_200 = sq_n(z2_100, 100) * z2_100;
         field_25519 z2_250 = sq_n(z2_200, 50) * z2_50;
-
-        //a^(p+3)/8 = (2^255-19+3)/8 = (2^255-16)/8 = 2^252-2
-        field_25519 a = sq_n(z2_250, 2) * z2;
-        field_25519 a_2 = a.square();
-        //daca a_2 == x ok daca a_2 == -x mai trb facut cv else return none()..
-
-        choice are_equal =  a_2 == z;
-        field_25519 _z = -z;
-        choice are_equal_neq = a_2 == -z;
-
-        /*
-            if(are_equal) return a;
-            if(are_equal_neq) return a*... sqrt(-1?);
-            return none();
-        
-        */
-
-        return ct_optional<field_25519>::none();
-
-
-        
-        
+        return sq_n(z2_250, 3) * z * z2;
     }
+
+
+
+
 
     template<typename T = field_25519>
     static constexpr ct_optional<T> from_bytes(std::array<uint8_t, T::byte_size> b)
@@ -244,6 +226,7 @@ class field_25519
         return ct_optional<T>::some(ret);
     }
 
+
     static constexpr field_25519 from_uniform_bytes(const std::array<uint8_t, field_25519::wide_byte_size> bytes)
     {
         //pe 32 de bytes valorile intre 0 si 19 apar de 2 ori.. ceea ce e un bias si nu e secure aparent deci..
@@ -262,62 +245,68 @@ class field_25519
         return (hi * (one() + 18u) + lo).reduce();  // hi*19 + lo
     }
 
-    constexpr field_25519 reduce() const
-    {
-        field_25519 ret = *this;
-        ret.reduce_inplace();
-        return ret;
-    }
-
-    constexpr void reduce_inplace()
-    {
-        constexpr uint64_t mask = (static_cast<uint64_t>(1) << 51) - 1;
-        
-        for (size_t i = 0; i < 4; ++i) {
-            limbs[i+1] += limbs[i] >> 51;
-            limbs[i] &= mask;
-        }
-        
-        limbs[0] += (limbs[4] >> 51) * 19;
-        limbs[4] &= mask;
-        
-        for (size_t i = 0; i < 4; ++i) {
-            limbs[i+1] += limbs[i] >> 51;
-            limbs[i] &= mask;
-        }
-        
-        // operatorul == apeleaza asta in spate
-        auto eq_raw = [](const field_25519& a, const field_25519& b)
-        {
-            return  choice::from_equal(a.limbs[0], b.limbs[0]) &&
-                    choice::from_equal(a.limbs[1], b.limbs[1]) &&
-                    choice::from_equal(a.limbs[2], b.limbs[2]) &&
-                    choice::from_equal(a.limbs[3], b.limbs[3]) &&
-                    choice::from_equal(a.limbs[4], b.limbs[4]);
-        };
-
-
-        // this e in  [0, 2^255)
-        // valorile din [p, p+18] -> [0, 18]
-        choice any_hit = choice::false_choice();
-        field_25519 canonical{};
-        for (uint64_t i = 0; i <= 18; ++i)
-        {
-            choice hit = eq_raw(*this, p()+ i);
-            canonical = ct_select(field_25519::zero()+ i, canonical, hit);
-            any_hit = any_hit || hit;
-        }
-        *this = ct_select(canonical, *this, any_hit);
-
-        
-        
-    }
+    field_25519 operator+(const uint64_t other) const;
+    field_25519 operator-(const uint64_t other) const;
 
 
     const std::array<uint8_t, field_25519::byte_size> to_bytes() const;
 
-private:
+    friend field_25519 ct_select(field_25519 a, field_25519 b, choice c);
+    friend void ct_swap(field_25519& a, field_25519& b, choice c);
+    friend void ct_swap(field_25519& a, field_25519& b);
+
+    template<typename T>
+    friend ct_optional<T> sqrt(field_25519 a);
+        
+
+
 };
 
-static_assert(crypto_field<field_25519, ct_optional<field_25519>, choice>);
+inline ct_optional<field_25519> sqrt(field_25519 to_take)
+{
+    
+    
+
+    // https://www.rfc-editor.org/rfc/rfc8032#section-5.1  (sqrt for p = 2^255-19)
+    auto sq_n = [](field_25519 x, int n) {
+        for (int i = 0; i < n; ++i) x = x.square();
+        return x;
+    };
+
+    // sqrt(-1) mod p = 2^((p-1)/4) = 2^(2^253-5)
+    //nu prea am inteles care i treaba cu nr complexe in modulo
+    static const field_25519 i = field_25519::i();
+    field_25519 z      = to_take;
+    field_25519 z2     = z.square();
+    field_25519 z9     = sq_n(z2, 2) * z;
+    field_25519 z11    = z9 * z2;
+    field_25519 z2_5   = z11.square() * z9;
+    field_25519 z2_10  = sq_n(z2_5,   5) * z2_5;
+    field_25519 z2_20  = sq_n(z2_10, 10) * z2_10;
+    field_25519 z2_40  = sq_n(z2_20, 20) * z2_20;
+    field_25519 z2_50  = sq_n(z2_40, 10) * z2_10;
+    field_25519 z2_100 = sq_n(z2_50,  50) * z2_50;
+    field_25519 z2_200 = sq_n(z2_100, 100) * z2_100;
+    field_25519 z2_250 = sq_n(z2_200, 50) * z2_50;
+
+
+    // candidate: z^((p+3)/8) = z^(2^252-2)
+    field_25519 a   = sq_n(z2_250, 2) * z2;
+    field_25519 a_2 = a.square();
+
+    // a^2 ==  z  return a
+    // a^2 == -z  return a * sqrt(-1)
+    // neither    return none
+    choice are_equal     = a_2 == z;
+    choice are_equal_neg = a_2 == -z;
+
+    field_25519 a_rotated = a * i;
+    field_25519 result    = ct_select(a, a_rotated, are_equal);
+    choice      is_root   = are_equal || are_equal_neg;
+
+    return ct_optional<field_25519>::from_choice(result, is_root);
+}
+
+
+static_assert(crypto_field<field_25519, ct_optional<field_25519>, choice> and quadratic_residue<field_25519, ct_optional<field_25519>>);
 
