@@ -1,6 +1,6 @@
 #pragma once
 #include <concepts>
-#include "condition.hpp"
+#include "domain/crypto/condition.hpp"
 
 template<typename T, class R>
 concept ct_selectable = condition<R> && requires(

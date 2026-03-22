@@ -5,7 +5,7 @@
 #include <span>
 
 template<typename T>
-concept hasher = requires(T h, std::span<const uint8_t> data)
+concept hasher = requires( std::remove_cvref_t<T> h, std::span<const uint8_t> data)
 {
     { T::digest_size } -> std::convertible_to<std::size_t>;
 

@@ -1,7 +1,7 @@
 #include <print>
 #include <random>
 #include <sodium.h>
-#include "impl/crypto/field/field_25519.hpp"
+#include "impl/crypto/util/math/field/field_25519.hpp"
 
 static int passed = 0;
 static int failed = 0;

@@ -262,12 +262,10 @@ field_25519 field_25519::operator-(const uint64_t other) const
 
 
 
-const std::array<uint8_t, field_25519::byte_size> field_25519::to_bytes() const
+std::array<uint8_t, 32> field_25519::to_bytes() const
 {
 	auto f = this->reduce();
 	const auto& l = f.limbs;
-
-
 
 	std::array<uint8_t, 32> ret{};
 
@@ -278,23 +276,18 @@ const std::array<uint8_t, field_25519::byte_size> field_25519::to_bytes() const
 	ret[3] = (l[0] >> 24) & 0xFF;
 	ret[4] = (l[0] >> 32) & 0xFF;
 	ret[5] = (l[0] >> 40) & 0xFF;
-	ret[6] = (l[0] >> 48) & 0x07; 
-	// bits 48..50 => low 3 bits of byte 6
+	ret[6] = (l[0] >> 48) & 0x07;
 
 	// l[1]: bits 51..101 => starts at bit 3 of byte 6
-	// bits 0..4 of l[1] => bits 3..7 of byte 6
-	// bits 45..50 of l[1] => low 6 bits of byte 12
-	ret[6] |= (l[1] <<  3) & 0xFF;        
-	ret[7] 	= (l[1] >>  5) & 0xFF;
-	ret[8] 	= (l[1] >> 13) & 0xFF;
-	ret[9] 	= (l[1] >> 21) & 0xFF;
+	ret[6] |= (l[1] <<  3) & 0xFF;
+	ret[7]  = (l[1] >>  5) & 0xFF;
+	ret[8]  = (l[1] >> 13) & 0xFF;
+	ret[9]  = (l[1] >> 21) & 0xFF;
 	ret[10] = (l[1] >> 29) & 0xFF;
 	ret[11] = (l[1] >> 37) & 0xFF;
 	ret[12] = (l[1] >> 45) & 0x3F;
 
 	// l[2]: bits 102..152 => starts at bit 6 of byte 12
-	// bits 0..1 of l[2] => bits 6..7 of byte 12
-	// bit 50 of l[2] => bit 0 of byte 19
 	ret[12]|= (l[2] <<  6) & 0xFF;
 	ret[13] = (l[2] >>  2) & 0xFF;
 	ret[14] = (l[2] >> 10) & 0xFF;
@@ -302,31 +295,100 @@ const std::array<uint8_t, field_25519::byte_size> field_25519::to_bytes() const
 	ret[16] = (l[2] >> 26) & 0xFF;
 	ret[17] = (l[2] >> 34) & 0xFF;
 	ret[18] = (l[2] >> 42) & 0xFF;
-	ret[19] = (l[2] >> 50) & 0x01;         
+	ret[19] = (l[2] >> 50) & 0x01;
 
 	// l[3]: bits 153..203 => starts at bit 1 of byte 19
-	// bits 0..6 of l[3] => bits 1..7 of byte 19
- 	// bits 47..50 of l[3] => low 4 bits of byte 25
-	ret[19]|= (l[3] <<  1) & 0xFF;         
+	ret[19]|= (l[3] <<  1) & 0xFF;
 	ret[20] = (l[3] >>  7) & 0xFF;
 	ret[21] = (l[3] >> 15) & 0xFF;
 	ret[22] = (l[3] >> 23) & 0xFF;
 	ret[23] = (l[3] >> 31) & 0xFF;
 	ret[24] = (l[3] >> 39) & 0xFF;
-	ret[25] = (l[3] >> 47) & 0x0F;        
+	ret[25] = (l[3] >> 47) & 0x0F;
 
 	// l[4]: bits 204..254 => starts at bit 4 of byte 25
-	// bits 0..3 of l[4] => bits 4..7 of byte 25
-	// bits 44..50 of l[4] => bits 0..6 of byte 31
-	// top bit of byte 31 is always 0 (value < 2^255)
 	ret[25]|= (l[4] <<  4) & 0xFF;
 	ret[26] = (l[4] >>  4) & 0xFF;
 	ret[27] = (l[4] >> 12) & 0xFF;
 	ret[28] = (l[4] >> 20) & 0xFF;
 	ret[29] = (l[4] >> 28) & 0xFF;
 	ret[30] = (l[4] >> 36) & 0xFF;
-	ret[31] = (l[4] >> 44) & 0x7F;          
+	ret[31] = (l[4] >> 44) & 0x7F;
 	return ret;
+}
+
+
+template<>
+ct_optional<field_25519> field_25519::from_bytes<field_25519>(std::array<uint8_t, 32> b)
+{
+	b[31] &= 0x7F;
+
+	constexpr uint64_t mask51 = (static_cast<uint64_t>(1) << 51) - 1;
+
+	uint64_t l0 =  (static_cast<uint64_t>(b[0])       )
+	             | (static_cast<uint64_t>(b[1]) <<  8  )
+	             | (static_cast<uint64_t>(b[2]) << 16  )
+	             | (static_cast<uint64_t>(b[3]) << 24  )
+	             | (static_cast<uint64_t>(b[4]) << 32  )
+	             | (static_cast<uint64_t>(b[5]) << 40  )
+	             | (static_cast<uint64_t>(b[6]) << 48  );
+	l0 &= mask51;
+
+	uint64_t l1 =  (static_cast<uint64_t>(b[6])  >>  3)
+	             | (static_cast<uint64_t>(b[7])  <<  5)
+	             | (static_cast<uint64_t>(b[8])  << 13)
+	             | (static_cast<uint64_t>(b[9])  << 21)
+	             | (static_cast<uint64_t>(b[10]) << 29)
+	             | (static_cast<uint64_t>(b[11]) << 37)
+	             | (static_cast<uint64_t>(b[12]) << 45);
+	l1 &= mask51;
+
+	uint64_t l2 =  (static_cast<uint64_t>(b[12]) >>  6)
+	             | (static_cast<uint64_t>(b[13]) <<  2)
+	             | (static_cast<uint64_t>(b[14]) << 10)
+	             | (static_cast<uint64_t>(b[15]) << 18)
+	             | (static_cast<uint64_t>(b[16]) << 26)
+	             | (static_cast<uint64_t>(b[17]) << 34)
+	             | (static_cast<uint64_t>(b[18]) << 42)
+	             | (static_cast<uint64_t>(b[19]) << 50);
+	l2 &= mask51;
+
+	uint64_t l3 =  (static_cast<uint64_t>(b[19]) >>  1)
+	             | (static_cast<uint64_t>(b[20]) <<  7)
+	             | (static_cast<uint64_t>(b[21]) << 15)
+	             | (static_cast<uint64_t>(b[22]) << 23)
+	             | (static_cast<uint64_t>(b[23]) << 31)
+	             | (static_cast<uint64_t>(b[24]) << 39)
+	             | (static_cast<uint64_t>(b[25]) << 47);
+	l3 &= mask51;
+
+	uint64_t l4 =  (static_cast<uint64_t>(b[25]) >>  4)
+	             | (static_cast<uint64_t>(b[26]) <<  4)
+	             | (static_cast<uint64_t>(b[27]) << 12)
+	             | (static_cast<uint64_t>(b[28]) << 20)
+	             | (static_cast<uint64_t>(b[29]) << 28)
+	             | (static_cast<uint64_t>(b[30]) << 36)
+	             | (static_cast<uint64_t>(b[31]) << 44);
+	l4 &= mask51;
+
+	field_25519 result{{l0, l1, l2, l3, l4}};
+	result.reduce_inplace();
+	return ct_optional<field_25519>::some(result);
+}
+
+// hi * 2^255 + lo ≡ hi * 19 + lo  (mod p)
+field_25519 field_25519::from_uniform_bytes(std::array<uint8_t, 64> bytes)
+{
+	std::array<uint8_t, 32> lo_bytes{}, hi_bytes{};
+	for (size_t i = 0; i < 32; ++i) {
+		lo_bytes[i] = bytes[i];
+		hi_bytes[i] = bytes[i + 32];
+	}
+	field_25519 lo = field_25519::from_bytes(lo_bytes).value_or(field_25519::zero());
+	field_25519 hi = field_25519::from_bytes(hi_bytes).value_or(field_25519::zero());
+	// hi * 19
+	field_25519 hi19 = hi * (field_25519::zero() + static_cast<uint64_t>(19));
+	return (lo + hi19).reduce();
 }
 
 //c? a : b
@@ -368,6 +430,3 @@ void ct_swap(field_25519& a, field_25519& b)
 }
 
 
-    //trick ca sa pacalesti compilatorul.. ca altfel nu merge ca vede field25519 in mijlocul parsarii 25519
-    
-    

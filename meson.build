@@ -6,7 +6,7 @@ project('peer2peer', 'cpp',
 crypto_sources = [
   'src/impl/crypto/hash/sha256.cpp',
   'src/impl/crypto/hash/sha512.cpp',
-  'src/impl/crypto/field/field_25519.cpp',
+  'src/impl/crypto/util/math/field/field_25519.cpp',
 ]
 
 inc = include_directories('src')
@@ -26,14 +26,15 @@ test_hasher = executable('THasher',
 
 test('hasher', test_hasher)
 
+sodium_dep = dependency('libsodium')
+
 test_field = executable('TField',
   sources : ['src/tests/crypto/field_25519_test.cpp'] + crypto_sources,
   include_directories : inc,
+  dependencies : sodium_dep,
 )
 
 test('field_25519', test_field)
-
-sodium_dep = dependency('libsodium')
 
 test_field_stress = executable('TFieldStress',
   sources : ['src/tests/crypto/field_25519_stress.cpp'] + crypto_sources,
@@ -42,3 +43,15 @@ test_field_stress = executable('TFieldStress',
 )
 
 test('field_25519_stress', test_field_stress)
+
+montgomery_sources = crypto_sources + [
+  'src/impl/crypto/util/math/group/montgomery_point.cpp',
+]
+
+test_x25519 = executable('TX25519',
+  sources : ['src/tests/crypto/x25519_test.cpp'] + montgomery_sources,
+  include_directories : inc,
+  dependencies : sodium_dep,
+)
+
+test('x25519', test_x25519)

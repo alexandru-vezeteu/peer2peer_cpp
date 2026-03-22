@@ -2,8 +2,8 @@
 #include <concepts>
 #include <utility>
 #include "choice.hpp"
-#include "domain/crypto/ct/ct_selectable.hpp"
-#include "domain/crypto/ct/optional.hpp"
+#include "impl/crypto/util/ct_selectable.hpp"
+#include "domain/crypto/optional.hpp"
 
 template<typename T>
 requires std::default_initializable<T> && ct_selectable<T, choice>

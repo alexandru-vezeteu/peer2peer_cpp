@@ -5,7 +5,7 @@
 template<typename T>
 inline constexpr bool is_condition_type = false;
 
-template<> inline constexpr bool is_condition_type<bool>   = true;
+template<> inline constexpr bool is_condition_type<bool> = true;
 
 
 template<typename T>

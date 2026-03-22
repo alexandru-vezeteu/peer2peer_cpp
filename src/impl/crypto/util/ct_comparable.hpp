@@ -1,8 +1,8 @@
 #pragma once
-#include "condition.hpp"
+#include "domain/crypto/condition.hpp"
 
 template<typename T>
-concept ct_comparable = requires( 
+concept ct_comparable = requires(
     std::remove_cvref_t<T> a,
     std::remove_cvref_t<T> b)
 {

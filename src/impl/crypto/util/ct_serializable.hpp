@@ -2,7 +2,7 @@
 #include <concepts>
 #include <array>
 #include <cstdint>
-#include "optional.hpp"
+#include "domain/crypto/optional.hpp"
 
 template<typename T>
 concept ct_serializable = requires(

@@ -1,6 +1,6 @@
 #pragma once
 #include <concepts>
-#include "condition.hpp"
+#include "domain/crypto/condition.hpp"
 
 template<typename T, typename R>
 concept ct_swappable = condition<R> && requires(
@@ -10,5 +10,4 @@ concept ct_swappable = condition<R> && requires(
 {
     { ct_swap(a, b, c) };
     { ct_swap(a, b) };
-
 };
