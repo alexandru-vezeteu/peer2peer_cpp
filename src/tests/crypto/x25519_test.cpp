@@ -21,7 +21,7 @@ static void print_hex(const char *label, const std::array<uint8_t, 32> &a)
     std::println("");
 }
 
-///rfc 7748
+//RFC 7748 test vectors
 
 static constexpr std::array<uint8_t, 32> alice_sk = {
     0x77,0x07,0x6d,0x0a, 0x73,0x18,0xa5,0x7d,
@@ -93,41 +93,79 @@ static constexpr std::array<uint8_t, 32> tv2_out = {
     0xe6,0xf8,0xf7,0x64, 0x7a,0xac,0x79,0x57,
 };
 
+// ── Small subgroup / low-order x-coordinates ────────────────────────────────
+// Curve25519 has cofactor 8. Clamped scalars are always multiples of 8,
+// so any input point of order 1/2/4/8 maps to the identity → all-zero output.
+// RFC 7748 §6 requires rejecting this.
+
+// x = 0: the 2-torsion point
+static constexpr std::array<uint8_t, 32> low_order_zero = {};
+
+// x = p (= 2^255 - 19, little-endian): reduces to 0 mod p, same result
+static constexpr std::array<uint8_t, 32> low_order_p = {
+    0xed,0xff,0xff,0xff, 0xff,0xff,0xff,0xff,
+    0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff,
+    0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0xff,
+    0xff,0xff,0xff,0xff, 0xff,0xff,0xff,0x7f,
+};
+
+// Order-8 point (x-coordinate, little-endian)
+static constexpr std::array<uint8_t, 32> low_order_8a = {
+    0xe0,0xeb,0x7a,0x7c, 0x3b,0x41,0xb8,0xae,
+    0x16,0x56,0xe3,0xfa, 0xf1,0x9f,0xc4,0x6a,
+    0xda,0x09,0x8d,0xeb, 0x9c,0x32,0xb1,0xfd,
+    0x86,0x62,0x05,0x16, 0x5f,0x49,0xb8,0x00,
+};
 
 template<typename KE>
 void run_tests(const char *name)
 {
     std::println("--- {} ---", name);
 
+    // derive_public
     {
         auto got = KE::derive_public(alice_sk);
         bool ok  = got == alice_pk;
-        TEST("§6.1 derive_public(alice_sk) == alice_pk", ok);
+        TEST("derive_public(alice_sk) == alice_pk", ok);
         if (!ok) { print_hex("got", got); print_hex("exp", alice_pk); }
     }
     {
         auto got = KE::derive_public(bob_sk);
         bool ok  = got == bob_pk;
-        TEST("§6.1 derive_public(bob_sk) == bob_pk", ok);
+        TEST("derive_public(bob_sk) == bob_pk", ok);
         if (!ok) { print_hex("got", got); print_hex("exp", bob_pk); }
     }
-    TEST("§6.1 exchange(alice_sk, bob_pk) == shared",
-        KE::exchange(alice_sk, bob_pk) == expected_shared);
-    TEST("§6.1 exchange(bob_sk, alice_pk) == shared",
-        KE::exchange(bob_sk, alice_pk) == expected_shared);
 
+    // valid exchanges
     {
-        auto got = KE::exchange(tv1_scalar, tv1_u);
-        bool ok  = got == tv1_out;
-        TEST("§5 tv1: X25519(k, u) == expected", ok);
-        if (!ok) { print_hex("got", got); print_hex("exp", tv1_out); }
+        auto r = KE::exchange(alice_sk, bob_pk);
+        TEST("exchange(alice_sk, bob_pk) is some",   r.is_some_public());
+        TEST("exchange(alice_sk, bob_pk) == shared", r.value_or({}) == expected_shared);
     }
     {
-        auto got = KE::exchange(tv2_scalar, tv2_u);
-        bool ok  = got == tv2_out;
-        TEST("§5 tv2: X25519(k, u) == expected", ok);
-        if (!ok) { print_hex("got", got); print_hex("exp", tv2_out); }
+        auto r = KE::exchange(bob_sk, alice_pk);
+        TEST("exchange(bob_sk, alice_pk) is some",   r.is_some_public());
+        TEST("exchange(bob_sk, alice_pk) == shared", r.value_or({}) == expected_shared);
     }
+    {
+        auto r = KE::exchange(tv1_scalar, tv1_u);
+        TEST("tv1 is some",     r.is_some_public());
+        bool ok = r.value_or({}) == tv1_out;
+        TEST("tv1 value", ok);
+        if (!ok) { print_hex("got", r.value_or({})); print_hex("exp", tv1_out); }
+    }
+    {
+        auto r = KE::exchange(tv2_scalar, tv2_u);
+        TEST("tv2 is some",     r.is_some_public());
+        bool ok = r.value_or({}) == tv2_out;
+        TEST("tv2 value", ok);
+        if (!ok) { print_hex("got", r.value_or({})); print_hex("exp", tv2_out); }
+    }
+
+    // small subgroup / low-order attack vectors → must return none
+    TEST("small subgroup: x=0 rejected",        !KE::exchange(alice_sk, low_order_zero).is_some_public());
+    TEST("small subgroup: x=p rejected",         !KE::exchange(alice_sk, low_order_p).is_some_public());
+    TEST("small subgroup: order-8 point rejected", !KE::exchange(alice_sk, low_order_8a).is_some_public());
 }
 
 int main()
@@ -142,16 +180,26 @@ int main()
 
     {
         std::println("--- cross-check ---");
-        auto sk      = x25519_key_exchange::generate();
+        auto sk       = x25519_key_exchange::generate();
         auto other_sk = x25519_key_exchange::generate();
         auto other_pk = x25519_key_exchange::derive_public(other_sk);
 
         TEST("derive_public agrees",
             x25519_key_exchange::derive_public(sk) ==
             x25519_libsodium_key_exchange::derive_public(sk));
-        TEST("exchange agrees",
-            x25519_key_exchange::exchange(sk, other_pk) ==
-            x25519_libsodium_key_exchange::exchange(sk, other_pk));
+
+        auto r1 = x25519_key_exchange::exchange(sk, other_pk);
+        auto r2 = x25519_libsodium_key_exchange::exchange(sk, other_pk);
+        TEST("exchange validity agrees",  r1.is_some_public() == r2.is_some_public());
+        TEST("exchange value agrees",     r1.value_or({}) == r2.value_or({}));
+
+        // both impls must reject low-order inputs
+        TEST("cross: x=0 both reject",
+            !x25519_key_exchange::exchange(sk, low_order_zero).is_some_public() &&
+            !x25519_libsodium_key_exchange::exchange(sk, low_order_zero).is_some_public());
+        TEST("cross: order-8a both reject",
+            !x25519_key_exchange::exchange(sk, low_order_8a).is_some_public() &&
+            !x25519_libsodium_key_exchange::exchange(sk, low_order_8a).is_some_public());
     }
 
     std::println("\n{} passed, {} failed", passed, failed);

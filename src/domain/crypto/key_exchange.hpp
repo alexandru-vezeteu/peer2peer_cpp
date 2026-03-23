@@ -2,6 +2,7 @@
 
 #include <concepts>
 #include <cstddef>
+#include "domain/crypto/optional.hpp"
 
 template<typename T>
 concept key_exchange = requires(
@@ -19,5 +20,5 @@ concept key_exchange = requires(
 
     { T::generate()          } -> std::same_as<typename T::private_key>;
     { T::derive_public(sk)   } -> std::same_as<typename T::public_key>;
-    { T::exchange(sk, pk)    } -> std::same_as<typename T::shared_secret>;
+    { T::exchange(sk, pk)    } -> optional;
 };

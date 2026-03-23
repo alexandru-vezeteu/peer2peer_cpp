@@ -5,6 +5,8 @@
 #include <sodium.h>
 
 #include "domain/crypto/key_exchange.hpp"
+#include "impl/crypto/util/ct_optional.hpp"
+#include "impl/crypto/util/ct_array.hpp"
 
 
 class x25519_libsodium_key_exchange
@@ -33,11 +35,13 @@ public:
         return pk;
     }
 
-    static shared_secret exchange(const private_key &sk, const public_key &pk)
+    static ct_optional<shared_secret> exchange(const private_key &sk, const public_key &pk)
     {
         shared_secret ss{};
         [[maybe_unused]] int r = crypto_scalarmult(ss.data(), sk.data(), pk.data());
-        return ss;
+        uint64_t acc = 0;
+        for (auto b : ss) acc |= b;
+        return ct_optional<shared_secret>::from_choice(ss, choice::from_nonzero(acc));
     }
 };
 

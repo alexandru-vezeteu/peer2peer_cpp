@@ -5,6 +5,8 @@
 #include <sodium.h>
 
 #include "domain/crypto/key_exchange.hpp"
+#include "impl/crypto/util/ct_array.hpp"
+#include "impl/crypto/util/ct_optional.hpp"
 #include "impl/crypto/util/math/group/montgomery_point.hpp"
 
 class x25519_key_exchange
@@ -32,11 +34,11 @@ public:
             .to_affine().to_bytes();
     }
 
-    static shared_secret exchange(const private_key &sk, const public_key &pk)
+    static ct_optional<shared_secret> exchange(const private_key &sk, const public_key &pk)
     {
-        auto point = montgomery_point::from_affine(
-            field_25519::from_bytes(pk).value_or(field_25519::zero()));
-        return (point * scalar_25519::from_bytes(sk)).to_affine().to_bytes();
+        auto point  = montgomery_point::from_affine(field_25519::from_bytes(pk).value_or(field_25519::zero()));
+        auto result = (point * scalar_25519::from_bytes(sk)).to_affine();
+        return ct_optional<shared_secret>::from_choice(result.to_bytes(), !result.is_zero());
     }
 };
 

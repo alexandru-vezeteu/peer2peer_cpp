@@ -4,32 +4,32 @@
 #include "impl/crypto/util/math/field/field_25519.hpp"
 
 class scalar_25519
+{
+	// 64*4 = 256 bits
+	std::array<uint64_t, 4> limbs;
+
+public:
+	
+	explicit constexpr scalar_25519(std::array<uint64_t, 4> limbs) : limbs(limbs)
 	{
-		// 64*4 = 256 bits
-		std::array<uint64_t, 4> limbs;
+		//trb niste clamping, cu 8 ca sa nu am small group attack??? urmeaza sa ma lamuresc mai mult
+		this->limbs[0] &= static_cast<uint64_t>(-1)<<3;
+		this->limbs[3] &= static_cast<uint64_t>(-1)>>1;
+		this->limbs[3] |= static_cast<uint64_t>(1)<<62;
 
-	public:
-		
-		explicit constexpr scalar_25519(std::array<uint64_t, 4> limbs) : limbs(limbs)
-		{
-			//trb niste clamping, cu 8 ca sa nu am small group attack??? urmeaza sa ma lamuresc mai mult
-			this->limbs[0] &= static_cast<uint64_t>(-1)<<3;
-			this->limbs[3] &= static_cast<uint64_t>(-1)>>1;
-			this->limbs[3] |= static_cast<uint64_t>(1)<<62;
-
-		};
-
-		static scalar_25519 from_bytes(const std::array<uint8_t, 32> &b)
-		{
-			std::array<uint64_t, 4> limbs{};
-			for (size_t i = 0; i < 4; ++i)
-				for (size_t j = 0; j < 8; ++j)
-					limbs[i] |= static_cast<uint64_t>(b[i * 8 + j]) << (j * 8);
-			return scalar_25519(limbs);
-		}
-
-		choice get_bit_i(uint8_t bit) const;
 	};
+
+	static scalar_25519 from_bytes(const std::array<uint8_t, 32> &b)
+	{
+		std::array<uint64_t, 4> limbs{};
+		for (size_t i = 0; i < 4; ++i)
+			for (size_t j = 0; j < 8; ++j)
+				limbs[i] |= static_cast<uint64_t>(b[i * 8 + j]) << (j * 8);
+		return scalar_25519(limbs);
+	}
+
+	choice get_bit_i(uint8_t bit) const;
+};
 
 
 class montgomery_point
