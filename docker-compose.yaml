@@ -5,3 +5,16 @@ services:
       dockerfile: node.dockerfile
     image: peer2peer:latest
     container_name: peer2peer-node
+    
+
+  peer2peer_dev:
+    build:
+      context: .
+      dockerfile: dev.dockerfile
+    image: peer2peer-dev:latest
+    container_name: peer2peer-dev-node
+    volumes:
+      - .:/app
+    environment:
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}

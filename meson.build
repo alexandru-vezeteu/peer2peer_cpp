@@ -7,6 +7,9 @@ crypto_sources = [
   'src/impl/crypto/hash/sha256.cpp',
   'src/impl/crypto/hash/sha512.cpp',
   'src/impl/crypto/util/math/field/field_25519.cpp',
+  'src/impl/crypto/util/math/field/field_130.cpp',
+  'src/impl/crypto/stream_cipher/chacha20.cpp',
+  'src/impl/crypto/mac/poly1305.cpp',
 ]
 
 inc = include_directories('src')
@@ -55,3 +58,17 @@ test_x25519 = executable('TX25519',
 )
 
 test('x25519', test_x25519)
+
+test_chacha20 = executable('TChaCha20',
+  sources : ['src/tests/crypto/chacha20_test.cpp'] + crypto_sources,
+  include_directories : inc,
+)
+
+test('chacha20', test_chacha20)
+
+test_poly1305 = executable('TPoly1305',
+  sources : ['src/tests/crypto/poly1305_test.cpp'] + crypto_sources,
+  include_directories : inc,
+)
+
+test('poly1305', test_poly1305)
