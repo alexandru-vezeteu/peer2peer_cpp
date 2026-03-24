@@ -1,8 +1,8 @@
-#include "poly1305.hpp"
+#include "poly_1305.hpp"
 
 #include <algorithm>
 
-std::array<uint8_t, 16> Poly1305::generate(
+std::array<uint8_t, 16> poly_1305::generate(
     std::span<const uint8_t> key,
     std::span<const uint8_t> msg)
 {
@@ -21,8 +21,8 @@ std::array<uint8_t, 16> Poly1305::generate(
     r_bytes[8]  &= 0xFC;
     r_bytes[12] &= 0xFC;
 
-    field_130 r   = field_130::from_bytes(r_bytes);
-    field_130 acc = field_130::zero();
+    field_1305 r   = field_1305::from_bytes(r_bytes);
+    field_1305 acc = field_1305::zero();
 
     // ── Process message blocks ────────────────────────────────────────────────
     // Each block is treated as a 130-bit integer: the raw bytes as a
@@ -37,7 +37,7 @@ std::array<uint8_t, 16> Poly1305::generate(
             block[i] = msg[offset + i];
         block[block_len] = 0x01; // append bit at position 8*block_len
 
-        field_130 n = field_130::from_bytes(block);
+        field_1305 n = field_1305::from_bytes(block);
         acc = (acc + n) * r;
         offset += block_len;
     }
@@ -58,7 +58,7 @@ std::array<uint8_t, 16> Poly1305::generate(
     return tag;
 }
 
-bool Poly1305::verify(
+bool poly_1305::verify(
     std::span<const uint8_t> key,
     std::span<const uint8_t> msg,
     std::span<const uint8_t> provided_tag)

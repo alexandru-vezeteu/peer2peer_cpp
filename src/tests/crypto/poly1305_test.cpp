@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <print>
 
-#include "impl/crypto/mac/poly1305.hpp"
+#include "impl/crypto/mac/poly_1305.hpp"
 
 static int passed = 0;
 static int failed = 0;
@@ -89,26 +89,26 @@ static void run_tests()
 {
     // TV1: RFC 8439 §2.5.2
     {
-        auto got = Poly1305::generate(tv1_key, tv1_msg);
+        auto got = poly_1305::generate(tv1_key, tv1_msg);
         TEST("RFC8439 §2.5.2: generate tag", got == tv1_tag);
-        TEST("RFC8439 §2.5.2: verify correct tag", Poly1305::verify(tv1_key, tv1_msg, tv1_tag));
+        TEST("RFC8439 §2.5.2: verify correct tag", poly_1305::verify(tv1_key, tv1_msg, tv1_tag));
     }
 
     // TV2: r=0, s=0 → all-zero tag
     {
-        auto got = Poly1305::generate(tv2_key, tv2_msg);
+        auto got = poly_1305::generate(tv2_key, tv2_msg);
         TEST("A.3#1: r=0 s=0 → zero tag", got == tv2_tag);
     }
 
     // TV3: r=0, s≠0 → tag equals s
     {
-        auto got = Poly1305::generate(tv3_key, tv3_msg);
+        auto got = poly_1305::generate(tv3_key, tv3_msg);
         TEST("A.3#2: r=0 s≠0 → tag==s", got == tv3_tag);
     }
 
     // TV4: r≠0, s=0
     {
-        auto got = Poly1305::generate(tv4_key, tv3_msg); // same message
+        auto got = poly_1305::generate(tv4_key, tv3_msg); // same message
         TEST("A.3#3: r≠0 s=0", got == tv4_tag);
     }
 
@@ -116,7 +116,7 @@ static void run_tests()
     {
         auto bad_tag = tv1_tag;
         bad_tag[0] ^= 0x01;
-        TEST("verify rejects wrong tag", !Poly1305::verify(tv1_key, tv1_msg, bad_tag));
+        TEST("verify rejects wrong tag", !poly_1305::verify(tv1_key, tv1_msg, bad_tag));
     }
 }
 

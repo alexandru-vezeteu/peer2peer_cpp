@@ -7,9 +7,9 @@ crypto_sources = [
   'src/impl/crypto/hash/sha256.cpp',
   'src/impl/crypto/hash/sha512.cpp',
   'src/impl/crypto/util/math/field/field_25519.cpp',
-  'src/impl/crypto/util/math/field/field_130.cpp',
+  'src/impl/crypto/util/math/field/field_1305.cpp',
   'src/impl/crypto/stream_cipher/chacha20.cpp',
-  'src/impl/crypto/mac/poly1305.cpp',
+  'src/impl/crypto/mac/poly_1305.cpp',
 ]
 
 inc = include_directories('src')

@@ -1,18 +1,18 @@
-#include "field_130.hpp"
+#include "field_1305.hpp"
 
 #include <cstddef>
 
 static constexpr uint64_t MASK26 = (1ULL << 26) - 1;
 
-field_130 field_130::operator+(field_130 other) const
+field_1305 field_1305::operator+(field_1305 other) const
 {
-    field_130 ret = other;
+    field_1305 ret = other;
     for (size_t i = 0; i < 5; ++i)
         ret.limbs[i] += this->limbs[i];
     return ret;
 }
 
-field_130 field_130::operator*(field_130 other) const
+field_1305 field_1305::operator*(field_1305 other) const
 {
     const auto& a = this->limbs;
     const auto& b = other.limbs;
@@ -30,7 +30,7 @@ field_130 field_130::operator*(field_130 other) const
         digits[i] &= MASK26;
     }
 
-    // Fold: 2^(5*26) = 2^130 ≡ 5 (mod p), so digits[k] for k>=5 contribute *5.
+    // Fold: 2^(5*26) = 2^1305 ≡ 5 (mod p), so digits[k] for k>=5 contribute *5.
     uint64_t out[5]{};
     out[0] = digits[0] + digits[5] * 5;
     out[1] = digits[1] + digits[6] * 5;
@@ -51,13 +51,13 @@ field_130 field_130::operator*(field_130 other) const
         out[i] &= MASK26;
     }
 
-    field_130 ret;
+    field_1305 ret;
     for (size_t i = 0; i < 5; ++i)
         ret.limbs[i] = out[i];
     return ret;
 }
 
-void field_130::reduce_inplace()
+void field_1305::reduce_inplace()
 {
     // Pass 1: propagate carries so each limb fits in 26 bits.
     for (size_t i = 0; i < 4; ++i) {
@@ -74,7 +74,7 @@ void field_130::reduce_inplace()
     }
 
     // Canonical reduction: subtract p if value >= p.
-    // Trick: tentatively add 5; if carry escapes limb[4] then value >= 2^130-5 = p.
+    // Trick: tentatively add 5; if carry escapes limb[4] then value >= 2^13055-5 = p.
     uint64_t c[5];
     uint64_t carry = 5;
     for (size_t i = 0; i < 5; ++i) {
@@ -89,9 +89,9 @@ void field_130::reduce_inplace()
         limbs[i] = (c[i] & sel) | (limbs[i] & ~sel);
 }
 
-field_130 field_130::reduce() const
+field_1305 field_1305::reduce() const
 {
-    field_130 ret = *this;
+    field_1305 ret = *this;
     ret.reduce_inplace();
     return ret;
 }
@@ -103,7 +103,7 @@ field_130 field_130::reduce() const
 //   l[3]: bits  78-103  →  bytes  9-12 (bits 6-7 of byte 9)
 //   l[4]: bits 104-129  →  bytes 13-16 (bits 0-1 of byte 16)
 
-field_130 field_130::from_bytes(std::array<uint8_t, 17> b)
+field_1305 field_1305::from_bytes(std::array<uint8_t, 17> b)
 {
     b[16] &= 0x03; // only bits 128-129 are valid in the last byte
 
@@ -137,12 +137,12 @@ field_130 field_130::from_bytes(std::array<uint8_t, 17> b)
                 | (uint64_t(b[16]) << 24);
     l4 &= MASK26;
 
-    field_130 result{{l0, l1, l2, l3, l4}};
+    field_1305 result{{l0, l1, l2, l3, l4}};
     result.reduce_inplace();
     return result;
 }
 
-std::array<uint8_t, 17> field_130::to_bytes() const
+std::array<uint8_t, 17> field_1305::to_bytes() const
 {
     auto f = this->reduce();
     const auto& l = f.limbs;

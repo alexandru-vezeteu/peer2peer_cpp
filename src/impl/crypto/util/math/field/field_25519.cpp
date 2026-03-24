@@ -41,9 +41,11 @@ field_25519 field_25519::operator+(const field_25519 other) const
 field_25519 field_25519::operator-(const field_25519 other) const
 {
 	field_25519 r = field_25519::p();
+	auto x= other;
+	x.reduce_inplace();
 	for(size_t i =0;i<r.limbs.size();++i)
 	{
-		r.limbs[i] -= other.limbs[i];
+		r.limbs[i] -= x.limbs[i];
 	}
 	r = r + *this;
 	return r;
