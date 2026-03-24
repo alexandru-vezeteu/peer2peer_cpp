@@ -1,4 +1,4 @@
-#include "chacha20.hpp"
+#include "chacha_20.hpp"
 
 #include <algorithm>
 #include <cstring>
@@ -32,7 +32,7 @@ static void store32_le(uint8_t* p, uint32_t v)
     (c) += (d); (b) ^= (c); (b) = rotl32((b),  7);
 
 // Produce one 64-byte keystream block from the 16-word initial state.
-void ChaCha20::block(const uint32_t init[16], uint8_t out[64])
+void chacha_20::block(const uint32_t init[16], uint8_t out[64])
 {
     uint32_t x[16];
     for (int i = 0; i < 16; ++i) x[i] = init[i];
@@ -54,7 +54,7 @@ void ChaCha20::block(const uint32_t init[16], uint8_t out[64])
         store32_le(out + 4 * i, x[i] + init[i]);
 }
 
-void ChaCha20::process(
+void chacha_20::process(
     std::span<const uint8_t> key,
     std::span<const uint8_t> nonce,
     uint64_t                 counter,

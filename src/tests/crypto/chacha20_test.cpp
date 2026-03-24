@@ -3,7 +3,7 @@
 #include <cstring>
 #include <print>
 
-#include "impl/crypto/stream_cipher/chacha20.hpp"
+#include "impl/crypto/stream_cipher/chacha_20.hpp"
 
 static int passed = 0;
 static int failed = 0;
@@ -101,21 +101,21 @@ static void run_tests()
     {
         std::array<uint8_t, 64> zeros{};
         std::array<uint8_t, 64> got{};
-        ChaCha20::process(tv1_key, tv1_nonce, tv1_counter, zeros, got);
+        chacha_20::process(tv1_key, tv1_nonce, tv1_counter, zeros, got);
         TEST("RFC8439 §2.3.2: block keystream matches", got == tv1_keystream);
     }
 
     // TV2: encryption
     {
         std::array<uint8_t, 114> got{};
-        ChaCha20::process(tv2_key, tv2_nonce, tv2_counter, tv2_plaintext, got);
+        chacha_20::process(tv2_key, tv2_nonce, tv2_counter, tv2_plaintext, got);
         TEST("RFC8439 §2.4.2: encrypt plaintext", got == tv2_ciphertext);
     }
 
     // TV2: decryption is symmetric
     {
         std::array<uint8_t, 114> got{};
-        ChaCha20::process(tv2_key, tv2_nonce, tv2_counter, tv2_ciphertext, got);
+        chacha_20::process(tv2_key, tv2_nonce, tv2_counter, tv2_ciphertext, got);
         TEST("RFC8439 §2.4.2: decrypt ciphertext", got == tv2_plaintext);
     }
 
@@ -123,7 +123,7 @@ static void run_tests()
     {
         std::array<uint8_t, 64> zeros{};
         std::array<uint8_t, 64> got{};
-        ChaCha20::process(tv3_key, tv3_nonce, tv3_counter, zeros, got);
+        chacha_20::process(tv3_key, tv3_nonce, tv3_counter, zeros, got);
         TEST("RFC8439 A.1: zero-key keystream matches", got == tv3_keystream);
     }
 
@@ -131,8 +131,8 @@ static void run_tests()
     {
         std::array<uint8_t, 128> zeros{};
         std::array<uint8_t, 128> ks0{}, ks1{};
-        ChaCha20::process(tv2_key, tv2_nonce, 0, zeros, ks0);
-        ChaCha20::process(tv2_key, tv2_nonce, 1, zeros, ks1);
+        chacha_20::process(tv2_key, tv2_nonce, 0, zeros, ks0);
+        chacha_20::process(tv2_key, tv2_nonce, 1, zeros, ks1);
         // Second half of ks0 (block 1) must equal first half of ks1 (also block 1)
         bool ok = true;
         for (size_t i = 0; i < 64; ++i)

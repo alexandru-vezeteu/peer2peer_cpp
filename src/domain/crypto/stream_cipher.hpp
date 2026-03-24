@@ -6,7 +6,7 @@
 
 template<typename T>
 concept stream_cipher = requires(
-    std::span<const uint8_t> key,
+    std::array<uint8_t, T::key_size> key,
     std::span<const uint8_t> nonce,
     std::span<const uint8_t> input,
     std::span<uint8_t>       output,
