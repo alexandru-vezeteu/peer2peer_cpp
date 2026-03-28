@@ -72,3 +72,10 @@ test_poly1305 = executable('TPoly1305',
 )
 
 test('poly1305', test_poly1305)
+
+test_chacha20_poly1305 = executable('TChaCha20Poly1305',
+  sources : ['src/tests/crypto/chacha20_poly1305_test.cpp'] + crypto_sources,
+  include_directories : inc,
+)
+
+test('chacha20_poly1305', test_chacha20_poly1305)

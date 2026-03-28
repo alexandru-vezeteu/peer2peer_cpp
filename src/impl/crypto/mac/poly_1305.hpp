@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <span>
 
-#include "domain/crypto/mac.hpp"
+#include "mac.hpp"
 #include "impl/crypto/util/math/field/field_1305.hpp"
 
 // Poly1305 one-time MAC — RFC 8439 §2.5

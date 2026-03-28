@@ -99,40 +99,48 @@ static void run_tests()
 {
     // TV1: keystream block (encrypt all-zero bytes → keystream)
     {
-        std::array<uint8_t, 64> zeros{};
         std::array<uint8_t, 64> got{};
-        chacha_20::process(tv1_key, tv1_nonce, tv1_counter, zeros, got);
+        chacha_20::apply_keystream(tv1_key, tv1_counter, tv1_nonce, got);
         TEST("RFC8439 §2.3.2: block keystream matches", got == tv1_keystream);
     }
 
     // TV2: encryption
     {
-        std::array<uint8_t, 114> got{};
-        chacha_20::process(tv2_key, tv2_nonce, tv2_counter, tv2_plaintext, got);
-        TEST("RFC8439 §2.4.2: encrypt plaintext", got == tv2_ciphertext);
+        auto got = tv2_plaintext;
+        chacha_20::apply_keystream(tv2_key, tv2_counter, tv2_nonce, got);
+        TEST("RFC8439 §2.4.2: apply_keystream encrypt plaintext", got == tv2_ciphertext);
+
+        // Also test the new public encrypt() interface which hardcodes counter=1
+        auto got_encrypt = tv2_plaintext;
+        auto ciphertext = chacha_20::encrypt(tv2_key, tv2_nonce, got_encrypt);
+        std::vector<uint8_t> expected_ciphertext(tv2_ciphertext.begin(), tv2_ciphertext.end());
+        TEST("RFC8439 §2.4.2: public encrypt() plaintext", ciphertext == expected_ciphertext);
     }
 
     // TV2: decryption is symmetric
     {
-        std::array<uint8_t, 114> got{};
-        chacha_20::process(tv2_key, tv2_nonce, tv2_counter, tv2_ciphertext, got);
-        TEST("RFC8439 §2.4.2: decrypt ciphertext", got == tv2_plaintext);
+        auto got = tv2_ciphertext;
+        chacha_20::apply_keystream(tv2_key, tv2_counter, tv2_nonce, got);
+        TEST("RFC8439 §2.4.2: apply_keystream decrypt ciphertext", got == tv2_plaintext);
+
+        // Also test the new public decrypt() interface
+        std::vector<uint8_t> expected_plaintext(tv2_plaintext.begin(), tv2_plaintext.end());
+        auto plaintext = chacha_20::decrypt(tv2_key, tv2_nonce, tv2_ciphertext);
+        TEST("RFC8439 §2.4.2: public decrypt() ciphertext", plaintext == expected_plaintext);
     }
 
     // TV3: all-zero key and nonce, counter=0
     {
-        std::array<uint8_t, 64> zeros{};
         std::array<uint8_t, 64> got{};
-        chacha_20::process(tv3_key, tv3_nonce, tv3_counter, zeros, got);
+        chacha_20::apply_keystream(tv3_key, tv3_counter, tv3_nonce, got);
         TEST("RFC8439 A.1: zero-key keystream matches", got == tv3_keystream);
     }
 
     // Counter independence: incrementing counter shifts keystream by one block
     {
-        std::array<uint8_t, 128> zeros{};
         std::array<uint8_t, 128> ks0{}, ks1{};
-        chacha_20::process(tv2_key, tv2_nonce, 0, zeros, ks0);
-        chacha_20::process(tv2_key, tv2_nonce, 1, zeros, ks1);
+        chacha_20::apply_keystream(tv2_key, 0, tv2_nonce, ks0);
+        chacha_20::apply_keystream(tv2_key, 1, tv2_nonce, ks1);
         // Second half of ks0 (block 1) must equal first half of ks1 (also block 1)
         bool ok = true;
         for (size_t i = 0; i < 64; ++i)

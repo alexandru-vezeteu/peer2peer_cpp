@@ -2,8 +2,8 @@
 #include <array>
 #include <cstdint>
 
-#include "impl/crypto/key_excahnge/x25519_key_exchange.hpp"
-#include "impl/crypto/key_excahnge/x25519_libsodium_key_exchange.hpp"
+#include "impl/crypto/key_exchange/x25519_key_exchange.hpp"
+#include "impl/crypto/key_exchange/x25519_libsodium_key_exchange.hpp"
 
 static int passed = 0;
 static int failed = 0;
