@@ -5,8 +5,11 @@
 #include "impl/crypto/util/ct_selectable.hpp"
 #include "domain/crypto/optional.hpp"
 
+
+using std::default_initializable;
+
 template<typename T>
-requires std::default_initializable<T> && ct_selectable<T, choice>
+requires default_initializable<T> && ct_selectable<T, choice>
 struct ct_optional
 {
     static ct_optional some(T v)              noexcept { return ct_optional( std::move(v), choice::true_choice()  ); }

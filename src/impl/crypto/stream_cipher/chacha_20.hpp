@@ -5,13 +5,15 @@
 #include <span>
 #include <vector>
 
-#include "stream_cipher.hpp"
+
 
 
 using std::span;
 using std::array;
 using std::size_t;
 using std::vector;
+
+namespace crypto {
 
 // ChaCha20 stream cipher — IETF variant (RFC 8439)
 // Key:   256 bits (32 bytes)
@@ -54,4 +56,5 @@ private:
     static void block(span<const uint32_t, 16> state, span<uint8_t, 64> out);
 };
 
-static_assert(stream_cipher<chacha_20>);
+} // namespace crypto
+

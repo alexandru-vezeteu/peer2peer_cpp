@@ -3,17 +3,20 @@
 
 #include <array>
 #include <span>
-using std::array;
-using std::span;
+
 #include <sodium.h>
 
 #include "domain/crypto/signing.hpp"
 #include "domain/crypto/hash.hpp"
 
 #include "impl/crypto/util/choice.hpp"
-#include "impl/crypto/hash/sha512.hpp"
+#include "impl/crypto/hash/sha_512.hpp"
 
 
+using std::array;
+using std::span;
+
+namespace crypto {
 
 template<hasher H>
 class eddsa
@@ -28,17 +31,9 @@ class eddsa
     using signature = array<uint8_t, signature_size>;
 
 
-    static bool init_random()
-    {
-        return sodium_init() != -1;
-    }
+    static bool init_random();
 
-    static private_key generate_private()
-    {
-        private_key seed;
-        randombytes_buf(seed.data(), seed.size());
-        return seed;
-    }
+    static private_key generate_private();
     static public_key derive_public(private_key priv);
 
     static signature sign(private_key priv, span<const uint8_t> msg);
@@ -47,4 +42,6 @@ class eddsa
 
 };
 
-static_assert(signing<eddsa<SHA512>>);
+static_assert(signing<eddsa<sha_512>>);
+
+} // namespace crypto

@@ -5,6 +5,8 @@
 
 #include "impl/crypto/stream_cipher/chacha_20.hpp"
 
+using namespace crypto;
+
 static int passed = 0;
 static int failed = 0;
 

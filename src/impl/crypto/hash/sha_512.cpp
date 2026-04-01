@@ -1,4 +1,6 @@
-#include "sha512.hpp"
+#include "sha_512.hpp"
+
+namespace crypto {
 
 static uint64_t rotr64(uint64_t x, uint64_t n)
 {
@@ -60,7 +62,7 @@ static const uint64_t K512[80] =
     0x5fcb6fab3ad6faec, 0x6c44198c4a475817
 };
 
-SHA512::SHA512() : buffer_len(0), bit_len_low(0), bit_len_high(0)
+sha_512::sha_512() : buffer_len(0), bit_len_low(0), bit_len_high(0)
 {
     state[0] = 0x6a09e667f3bcc908;
     state[1] = 0xbb67ae8584caa73b;
@@ -72,7 +74,7 @@ SHA512::SHA512() : buffer_len(0), bit_len_low(0), bit_len_high(0)
     state[7] = 0x5be0cd19137e2179;
 }
 
-void SHA512::transform(const uint8_t* block)
+void sha_512::transform(const uint8_t* block)
 {
     uint64_t w[80];
     for (int i = 0; i < 16; ++i)
@@ -107,7 +109,7 @@ void SHA512::transform(const uint8_t* block)
     state[4] += e; state[5] += f; state[6] += g; state[7] += h;
 }
 
-void SHA512::update(std::span<const uint8_t> data)
+void sha_512::update(span<const uint8_t> data)
 {
     for (uint8_t b : data)
     {
@@ -122,7 +124,7 @@ void SHA512::update(std::span<const uint8_t> data)
     }
 }
 
-std::array<uint8_t, 64> SHA512::finalize()
+array<uint8_t, 64> sha_512::finalize()
 {
     uint64_t low  = bit_len_low + (buffer_len * 8);
     uint64_t high = bit_len_high + (low < bit_len_low);
@@ -146,18 +148,20 @@ std::array<uint8_t, 64> SHA512::finalize()
 
     transform(buffer);
 
-    std::array<uint8_t, 64> digest;
+    array<uint8_t, 64> digest;
     for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j)
             digest[i * 8 + j] = static_cast<uint8_t>(state[i] >> (56 - j * 8));
 
-    *this = SHA512();
+    *this = sha_512();
     return digest;
 }
 
-std::array<uint8_t, 64> SHA512::hash(std::span<const uint8_t> data)
+array<uint8_t, 64> sha_512::hash(span<const uint8_t> data)
 {
-    SHA512 h;
+    sha_512 h;
     h.update(data);
     return h.finalize();
 }
+
+} // namespace crypto

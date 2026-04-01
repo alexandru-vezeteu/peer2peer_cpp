@@ -7,8 +7,10 @@
 
 #include <openssl/evp.h>
 
-#include "impl/crypto/hash/sha256.hpp"
-#include "impl/crypto/hash/sha512.hpp"
+#include "impl/crypto/hash/sha_256.hpp"
+#include "impl/crypto/hash/sha_512.hpp"
+
+using namespace crypto;
 
 static void print_hex(std::span<const uint8_t> data)
 {
@@ -42,7 +44,7 @@ static void test_sha256(std::string_view label, std::string_view input)
     auto data = std::span<const uint8_t>(
         reinterpret_cast<const uint8_t*>(input.data()), input.size());
 
-    auto our = SHA256::hash(data);
+    auto our = sha_256::hash(data);
     auto ref = openssl_hash(EVP_sha256(), input);
 
     bool ok = bytes_equal(our, std::span<const uint8_t>(ref));
@@ -68,7 +70,7 @@ static void test_sha512(std::string_view label, std::string_view input)
     auto data = std::span<const uint8_t>(
         reinterpret_cast<const uint8_t*>(input.data()), input.size());
 
-    auto our = SHA512::hash(data);
+    auto our = sha_512::hash(data);
     auto ref = openssl_hash(EVP_sha512(), input);
 
     bool ok = bytes_equal(our, std::span<const uint8_t>(ref));
@@ -98,7 +100,7 @@ static void test_file_sha256(std::string_view label, std::string_view path)
         return;
     }
 
-    SHA256 our_hasher;
+    sha_256 our_hasher;
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     EVP_DigestInit_ex(ctx, EVP_sha256(), nullptr);
 
@@ -144,7 +146,7 @@ static void test_file_sha512(std::string_view label, std::string_view path)
         return;
     }
 
-    SHA512 our_hasher;
+    sha_512 our_hasher;
     EVP_MD_CTX* ctx = EVP_MD_CTX_new();
     EVP_DigestInit_ex(ctx, EVP_sha512(), nullptr);
 

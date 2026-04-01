@@ -2,6 +2,10 @@
 
 #include <algorithm>
 #include <cstring>
+using std::min;
+using std::copy;
+
+namespace crypto {
 
 static uint32_t rotl32(uint32_t v, int n)
 {
@@ -79,7 +83,7 @@ void chacha_20::apply_keystream(
     while (offset < buffer.size()) 
     {
         block(state, keystream_arr);
-        size_t n = std::min(buffer.size() - offset, size_t(64));
+        size_t n = min(buffer.size() - offset, size_t(64));
         for (size_t i = 0; i < n; ++i)
             buffer[offset + i] ^= keystream_arr[i];
         offset += 64;
@@ -117,6 +121,8 @@ array<uint8_t, 32> chacha_20::subkey(
     array<uint8_t, 64> block_out{};
     apply_keystream(key, /*counter=*/0, nonce, block_out);
     array<uint8_t, 32> result;
-    std::copy(block_out.begin(), block_out.begin() + 32, result.begin());
+    copy(block_out.begin(), block_out.begin() + 32, result.begin());
     return result;
 }
+
+} // namespace crypto

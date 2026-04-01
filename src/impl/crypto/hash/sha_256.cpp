@@ -1,4 +1,6 @@
-#include "sha256.hpp"
+#include "sha_256.hpp"
+
+namespace crypto {
 
 static uint32_t rotr(uint32_t x, uint32_t n)
 {
@@ -44,7 +46,7 @@ static const uint32_t K256[64] = {
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
 };
 
-SHA256::SHA256() : buffer_len(0), bit_len(0)
+sha_256::sha_256() : buffer_len(0), bit_len(0)
 {
     state[0] = 0x6a09e667;
     state[1] = 0xbb67ae85;
@@ -56,7 +58,7 @@ SHA256::SHA256() : buffer_len(0), bit_len(0)
     state[7] = 0x5be0cd19;
 }
 
-void SHA256::transform(const uint8_t* block)
+void sha_256::transform(const uint8_t* block)
 {
     uint32_t w[64];
     for (int i = 0; i < 16; ++i)
@@ -87,7 +89,7 @@ void SHA256::transform(const uint8_t* block)
     state[4] += e; state[5] += f; state[6] += g; state[7] += h;
 }
 
-void SHA256::update(std::span<const uint8_t> data)
+void sha_256::update(span<const uint8_t> data)
 {
     for (uint8_t b : data)
     {
@@ -101,7 +103,7 @@ void SHA256::update(std::span<const uint8_t> data)
     }
 }
 
-std::array<uint8_t, 32> SHA256::finalize()
+array<uint8_t, 32> sha_256::finalize()
 {
     uint64_t total_bits = bit_len + (static_cast<uint64_t>(buffer_len) * 8);
 
@@ -121,7 +123,7 @@ std::array<uint8_t, 32> SHA256::finalize()
 
     transform(buffer);
 
-    std::array<uint8_t, 32> digest;
+    array<uint8_t, 32> digest;
     for (int i = 0; i < 8; ++i)
     {
         digest[i * 4]     = static_cast<uint8_t>(state[i] >> 24);
@@ -130,13 +132,15 @@ std::array<uint8_t, 32> SHA256::finalize()
         digest[i * 4 + 3] = static_cast<uint8_t>(state[i]);
     }
 
-    *this = SHA256();
+    *this = sha_256();
     return digest;
 }
 
-std::array<uint8_t, 32> SHA256::hash(std::span<const uint8_t> data)
+array<uint8_t, 32> sha_256::hash(span<const uint8_t> data)
 {
-    SHA256 h;
+    sha_256 h;
     h.update(data);
     return h.finalize();
 }
+
+} // namespace crypto

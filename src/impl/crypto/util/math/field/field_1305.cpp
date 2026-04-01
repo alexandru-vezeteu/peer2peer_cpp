@@ -89,13 +89,6 @@ void field_1305::reduce_inplace()
         limbs[i] = (c[i] & sel) | (limbs[i] & ~sel);
 }
 
-field_1305 field_1305::reduce() const
-{
-    field_1305 ret = *this;
-    ret.reduce_inplace();
-    return ret;
-}
-
 // Limb layout (little-endian bit packing, 26 bits per limb):
 //   l[0]: bits   0- 25  →  bytes  0-3 (bits 0-1  of byte 3)
 //   l[1]: bits  26- 51  →  bytes  3-6 (bits 2-7  of byte 3, bits 0-3 of byte 6)
@@ -144,7 +137,8 @@ field_1305 field_1305::from_bytes(std::array<uint8_t, 17> b)
 
 std::array<uint8_t, 17> field_1305::to_bytes() const
 {
-    auto f = this->reduce();
+    field_1305 f = *this;
+    f.reduce_inplace();
     const auto& l = f.limbs;
 
     std::array<uint8_t, 17> ret{};

@@ -1,10 +1,10 @@
 #pragma once
 #include "domain/crypto/condition.hpp"
-
+using std::remove_cvref_t;
 template<typename T>
 concept ct_comparable = requires(
-    std::remove_cvref_t<T> a,
-    std::remove_cvref_t<T> b)
+    remove_cvref_t<T> a,
+    remove_cvref_t<T> b)
 {
     { a == b }      -> condition;
     { a != b }      -> condition;

@@ -1,10 +1,14 @@
 #pragma once
 
-#include <array>
 #include <cstdint>
 #include <span>
 
 #include "condition.hpp"
+
+using std::convertible_to;
+using std::same_as;
+using std::size_t;
+
 
 template<typename T>
 concept signing = requires(
@@ -17,17 +21,17 @@ concept signing = requires(
     typename T::public_key;
     typename T::signature;
 
-    { T::private_key_size  } -> std::convertible_to<std::size_t>;
-    { T::public_key_size   } -> std::convertible_to<std::size_t>;
-    { T::signature_size    } -> std::convertible_to<std::size_t>;
+    { T::private_key_size  } -> convertible_to<size_t>;
+    { T::public_key_size   } -> convertible_to<size_t>;
+    { T::signature_size    } -> convertible_to<size_t>;
 
-    { T::generate_private()  } -> std::same_as<typename T::private_key>;
-    { T::derive_public(priv) } -> std::same_as<typename T::public_key>;
+    { T::generate_private()  } -> same_as<typename T::private_key>;
+    { T::derive_public(priv) } -> same_as<typename T::public_key>;
 
 
 
-    { T::sign(priv, msg)       } -> std::same_as<typename T::signature>;
+    { T::sign(priv, msg)       } -> same_as<typename T::signature>;
     { T::verify(pub, msg, sig) } -> condition;
 
-    { T::init_random()       } -> std::same_as<bool>;
+    { T::init_random()       } -> same_as<bool>;
 };

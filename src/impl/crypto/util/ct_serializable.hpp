@@ -3,16 +3,21 @@
 #include <array>
 #include <cstdint>
 #include "domain/crypto/optional.hpp"
+using std::remove_cvref_t;
+using std::size_t;
+using std::integral_constant;
+using std::same_as;
+using std::array;
 
 template<typename T>
 concept ct_serializable = requires(
-        std::remove_cvref_t<T> a,
-        const std::array<uint8_t, T::byte_size>      bytes,
-        const std::array<uint8_t, T::wide_byte_size> wide_bytes)
+        remove_cvref_t<T> a,
+        const array<uint8_t, T::byte_size>      bytes,
+        const array<uint8_t, T::wide_byte_size> wide_bytes)
 {
-    { std::integral_constant<std::size_t, T::byte_size>{}      };
-    { std::integral_constant<std::size_t, T::wide_byte_size>{}  };
+    { integral_constant<size_t, T::byte_size>{}      };
+    { integral_constant<size_t, T::wide_byte_size>{}  };
     { T::from_bytes(bytes)              } -> optional_of<T>;
-    { T::from_uniform_bytes(wide_bytes) } -> std::same_as<T>;
-    { a.to_bytes()                      } -> std::same_as<decltype(bytes)>;
+    { T::from_uniform_bytes(wide_bytes) } -> same_as<T>;
+    { a.to_bytes()                      } -> same_as<decltype(bytes)>;
 };

@@ -4,12 +4,14 @@ project('peer2peer', 'cpp',
 )
 
 crypto_sources = [
-  'src/impl/crypto/hash/sha256.cpp',
-  'src/impl/crypto/hash/sha512.cpp',
+  'src/impl/crypto/hash/sha_256.cpp',
+  'src/impl/crypto/hash/sha_512.cpp',
   'src/impl/crypto/util/math/field/field_25519.cpp',
   'src/impl/crypto/util/math/field/field_1305.cpp',
   'src/impl/crypto/stream_cipher/chacha_20.cpp',
   'src/impl/crypto/mac/poly_1305.cpp',
+  'src/impl/crypto/aead/chacha20_poly1305.cpp',
+  'src/impl/crypto/util/math/field/field_q.cpp',
 ]
 
 inc = include_directories('src')
@@ -31,33 +33,32 @@ test('hasher', test_hasher)
 
 sodium_dep = dependency('libsodium')
 
-test_field = executable('TField',
-  sources : ['src/tests/crypto/field_25519_test.cpp'] + crypto_sources,
-  include_directories : inc,
-  dependencies : sodium_dep,
-)
-
-test('field_25519', test_field)
-
-test_field_stress = executable('TFieldStress',
-  sources : ['src/tests/crypto/field_25519_stress.cpp'] + crypto_sources,
-  include_directories : inc,
-  dependencies : sodium_dep,
-)
-
-test('field_25519_stress', test_field_stress)
-
 montgomery_sources = crypto_sources + [
   'src/impl/crypto/util/math/group/montgomery_point.cpp',
+  'src/impl/crypto/key_exchange/x25519.cpp',
+  'src/impl/crypto/key_exchange/x25519_libsodium.cpp',
 ]
+
+eddsa_sources = crypto_sources + [
+  'src/impl/crypto/util/math/group/edwards_point.cpp',
+  'src/impl/crypto/signing/eddsa.cpp',
+]
+
 
 test_x25519 = executable('TX25519',
   sources : ['src/tests/crypto/x25519_test.cpp'] + montgomery_sources,
   include_directories : inc,
   dependencies : sodium_dep,
 )
-
 test('x25519', test_x25519)
+
+test_eddsa = executable('TEdDSA',
+  sources : ['src/tests/crypto/eddsa_test.cpp'] + eddsa_sources,
+  include_directories : inc,
+  dependencies : sodium_dep,
+)
+
+test('eddsa', test_eddsa)
 
 test_chacha20 = executable('TChaCha20',
   sources : ['src/tests/crypto/chacha20_test.cpp'] + crypto_sources,

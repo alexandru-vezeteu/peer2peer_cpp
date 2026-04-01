@@ -33,7 +33,7 @@ struct choice
 	}
 
 
-  public:
+
 	static constexpr choice from_equal(uint64_t a, uint64_t b)
 	{
 		return choice{a - b};

@@ -2,8 +2,10 @@
 #include <array>
 #include <cstdint>
 
-#include "impl/crypto/key_exchange/x25519_key_exchange.hpp"
-#include "impl/crypto/key_exchange/x25519_libsodium_key_exchange.hpp"
+#include "impl/crypto/key_exchange/x25519.hpp"
+#include "impl/crypto/key_exchange/x25519_libsodium.hpp"
+
+using namespace crypto;
 
 static int passed = 0;
 static int failed = 0;
@@ -93,6 +95,25 @@ static constexpr std::array<uint8_t, 32> tv2_out = {
     0xe6,0xf8,0xf7,0x64, 0x7a,0xac,0x79,0x57,
 };
 
+static constexpr std::array<uint8_t, 32> iter_base = {
+    0x09,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+    0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+};
+static constexpr std::array<uint8_t, 32> iter_out_1 = {
+    0x42,0x2c,0x8e,0x7a,0x62,0x27,0xd7,0xbc,
+    0xa1,0x35,0x0b,0x3e,0x2b,0xb7,0x27,0x9f,
+    0x78,0x97,0xb8,0x7b,0xb6,0x85,0x4b,0x78,
+    0x3c,0x60,0xe8,0x03,0x11,0xae,0x30,0x79,
+};
+static constexpr std::array<uint8_t, 32> iter_out_1000 = {
+    0x68,0x4c,0xf5,0x9b,0xa8,0x33,0x09,0x55,
+    0x28,0x00,0xef,0x56,0x6f,0x2f,0x4d,0x3c,
+    0x1c,0x38,0x87,0xc4,0x93,0x60,0xe3,0x87,
+    0x5f,0x2e,0xb9,0x4d,0x99,0x53,0x2c,0x51,
+};
+
 // ── Small subgroup / low-order x-coordinates ────────────────────────────────
 // Curve25519 has cofactor 8. Clamped scalars are always multiples of 8,
 // so any input point of order 1/2/4/8 maps to the identity → all-zero output.
@@ -128,6 +149,34 @@ void run_tests(const char *name)
         bool ok  = got == alice_pk;
         TEST("derive_public(alice_sk) == alice_pk", ok);
         if (!ok) { print_hex("got", got); print_hex("exp", alice_pk); }
+    }
+
+    // RFC 7748 iterative vectors
+    {
+        auto k = iter_base;
+        auto u = iter_base;
+        for (int i = 0; i < 1; ++i) {
+            auto r = KE::exchange(k, u);
+            auto k_old = k;
+            k = r.value_or({});
+            u = k_old;
+        }
+        bool ok = (k == iter_out_1);
+        TEST("iter 1 value", ok);
+        if (!ok) { print_hex("got", k); print_hex("exp", iter_out_1); }
+    }
+    {
+        auto k = iter_base;
+        auto u = iter_base;
+        for (int i = 0; i < 1000; ++i) {
+            auto r = KE::exchange(k, u);
+            auto k_old = k;
+            k = r.value_or({});
+            u = k_old;
+        }
+        bool ok = (k == iter_out_1000);
+        TEST("iter 1000 value", ok);
+        if (!ok) { print_hex("got", k); print_hex("exp", iter_out_1000); }
     }
     {
         auto got = KE::derive_public(bob_sk);
@@ -170,36 +219,36 @@ void run_tests(const char *name)
 
 int main()
 {
-    if (!x25519_key_exchange::init_random()) {
+    if (!x25519::init_random()) {
         std::println("sodium_init failed");
         return 1;
     }
 
-    run_tests<x25519_key_exchange>("x25519 (custom)");
-    run_tests<x25519_libsodium_key_exchange>("x25519 (libsodium)");
+    run_tests<x25519>("x25519 (custom)");
+    run_tests<x25519_libsodium>("x25519 (libsodium)");
 
     {
         std::println("--- cross-check ---");
-        auto sk       = x25519_key_exchange::generate();
-        auto other_sk = x25519_key_exchange::generate();
-        auto other_pk = x25519_key_exchange::derive_public(other_sk);
+        auto sk       = x25519::generate();
+        auto other_sk = x25519::generate();
+        auto other_pk = x25519::derive_public(other_sk);
 
         TEST("derive_public agrees",
-            x25519_key_exchange::derive_public(sk) ==
-            x25519_libsodium_key_exchange::derive_public(sk));
+            x25519::derive_public(sk) ==
+            x25519_libsodium::derive_public(sk));
 
-        auto r1 = x25519_key_exchange::exchange(sk, other_pk);
-        auto r2 = x25519_libsodium_key_exchange::exchange(sk, other_pk);
+        auto r1 = x25519::exchange(sk, other_pk);
+        auto r2 = x25519_libsodium::exchange(sk, other_pk);
         TEST("exchange validity agrees",  r1.is_some_public() == r2.is_some_public());
         TEST("exchange value agrees",     r1.value_or({}) == r2.value_or({}));
 
         // both impls must reject low-order inputs
         TEST("cross: x=0 both reject",
-            !x25519_key_exchange::exchange(sk, low_order_zero).is_some_public() &&
-            !x25519_libsodium_key_exchange::exchange(sk, low_order_zero).is_some_public());
+            !x25519::exchange(sk, low_order_zero).is_some_public() &&
+            !x25519_libsodium::exchange(sk, low_order_zero).is_some_public());
         TEST("cross: order-8a both reject",
-            !x25519_key_exchange::exchange(sk, low_order_8a).is_some_public() &&
-            !x25519_libsodium_key_exchange::exchange(sk, low_order_8a).is_some_public());
+            !x25519::exchange(sk, low_order_8a).is_some_public() &&
+            !x25519_libsodium::exchange(sk, low_order_8a).is_some_public());
     }
 
     std::println("\n{} passed, {} failed", passed, failed);
