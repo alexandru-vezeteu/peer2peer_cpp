@@ -50,14 +50,18 @@ std::vector<uint8_t> build_get_peers()
 std::vector<uint8_t> build_peer_list(std::span<const peer_info> peers)
 {
     // [type:1][count:2][(ip:4, port:2, pubkey:32) * count]
-    std::vector<uint8_t> v;
-    v.reserve(3 + peers.size() * 38);
-    v.push_back(static_cast<uint8_t>(msg_type::peer_list));
-    append_u16be(v, static_cast<uint16_t>(peers.size()));
+    // Use resize+memcpy instead of push_back/insert — avoids GCC-14 O3 false positives
+    // (-Werror=free-nonheap-object, -Werror=stringop-overflow=, -Werror=array-bounds=)
+    std::vector<uint8_t> v(3 + peers.size() * 38);
+    v[0] = static_cast<uint8_t>(msg_type::peer_list);
+    uint16_t cnt = htons(static_cast<uint16_t>(peers.size()));
+    std::memcpy(v.data() + 1, &cnt, 2);
+    size_t off = 3;
     for (const auto& p : peers) {
-        append_bytes(v, p.ip.data(), 4);
-        append_u16be(v, p.port);
-        append_bytes(v, p.pubkey.data(), 32);
+        std::memcpy(v.data() + off, p.ip.data(), 4); off += 4;
+        uint16_t port = htons(p.port);
+        std::memcpy(v.data() + off, &port, 2); off += 2;
+        std::memcpy(v.data() + off, p.pubkey.data(), 32); off += 32;
     }
     return v;
 }
@@ -107,11 +111,11 @@ std::vector<uint8_t> build_encrypted(std::span<const uint8_t, 12> nonce,
                                      std::span<const uint8_t>     blob)
 {
     // [type:1][nonce:12][ciphertext+tag]
-    std::vector<uint8_t> v;
-    v.reserve(13 + blob.size());
-    v.push_back(static_cast<uint8_t>(msg_type::encrypted));
-    append_bytes(v, nonce.data(), 12);
-    append_bytes(v, blob.data(), blob.size());
+    // Use resize+memcpy — avoids GCC-14 O3 false positives on push_back+insert
+    std::vector<uint8_t> v(13 + blob.size());
+    v[0] = static_cast<uint8_t>(msg_type::encrypted);
+    std::memcpy(v.data() + 1,  nonce.data(), 12);
+    std::memcpy(v.data() + 13, blob.data(),  blob.size());
     return v;
 }
 
