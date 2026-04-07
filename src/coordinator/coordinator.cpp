@@ -47,17 +47,24 @@ void coordinator::run()
 
                     {
                         std::lock_guard lock(mu_);
+                        auto now = std::chrono::steady_clock::now();
                         auto it = std::find_if(peers_.begin(), peers_.end(),
-                            [&](const peer_info& p) { return p.pubkey == pi.pubkey; });
-                        if (it != peers_.end()) *it = pi;
-                        else peers_.push_back(pi);
+                            [&](const timed_peer& tp) { return tp.pi.pubkey == pi.pubkey; });
+                        if (it != peers_.end()) { it->pi = pi; it->last_seen = now; }
+                        else peers_.push_back({pi, now});
                     }
                     std::cout << "[coordinator] registered " << ip << ":" << r->port << "\n";
                     conn.send_frame(build_ok());
 
                 } else if (type == msg_type::get_peers) {
+                    auto now = std::chrono::steady_clock::now();
                     std::vector<peer_info> snapshot;
-                    { std::lock_guard lock(mu_); snapshot = peers_; }
+                    {
+                        std::lock_guard lock(mu_);
+                        for (const auto& tp : peers_)
+                            if (now - tp.last_seen <= PEER_TTL)
+                                snapshot.push_back(tp.pi);
+                    }
                     conn.send_frame(build_peer_list(snapshot));
 
                 } else {
