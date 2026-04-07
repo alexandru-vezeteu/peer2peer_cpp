@@ -135,7 +135,15 @@ std::optional<session> handshake_as_initiator(
         return std::nullopt;
     }
 
-    // 7. Build session (initiator sends on k_i2r, receives on k_r2i)
+    // 7. Wait for responder's OK — confirms it accepted our identity.
+    //    If verification failed on their side they close the connection; recv returns nullopt.
+    auto ack = conn.recv_frame();
+    if (!ack || get_type(*ack) != msg_type::ok) {
+        std::cerr << "[handshake] no OK from responder (identity rejected?)\n";
+        return std::nullopt;
+    }
+
+    // 8. Build session (initiator sends on k_i2r, receives on k_r2i)
     session s;
     s.peer_identity_pk = resp->identity_pk;
     std::array<uint8_t, 32> k_i2r, k_r2i;
@@ -193,10 +201,17 @@ std::optional<session> handshake_as_responder(
                         finish->sig).unwrap_public())
     {
         std::cerr << "[handshake] initiator signature invalid\n";
+        // Do NOT send OK — closing the connection signals rejection to initiator
         return std::nullopt;
     }
 
-    // 8. Build session (responder sends on k_r2i, receives on k_i2r)
+    // 8. Acknowledge: tell initiator we accepted their identity
+    if (!conn.send_frame(build_ok())) {
+        std::cerr << "[handshake] send OK failed\n";
+        return std::nullopt;
+    }
+
+    // 9. Build session (responder sends on k_r2i, receives on k_i2r)
     session s;
     s.peer_identity_pk = finish->identity_pk;
     std::array<uint8_t, 32> k_i2r, k_r2i;
