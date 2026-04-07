@@ -1,20 +1,98 @@
+networks:
+  p2p-net:
+    driver: bridge
+
+# ── Shared node defaults ──────────────────────────────────────────────────────
+x-node: &node
+  build:
+    context: .
+    dockerfile: node.dockerfile
+  depends_on:
+    coordinator:
+      condition: service_healthy
+  networks:
+    - p2p-net
+  restart: unless-stopped
+
 services:
-  peer2peer:
+
+  # ── Coordinator ─────────────────────────────────────────────────────────────
+  coordinator:
     build:
       context: .
       dockerfile: node.dockerfile
-    image: peer2peer:latest
-    container_name: peer2peer-node
-    
+    container_name: p2p-coordinator
+    command: coordinator --port 9000
+    networks:
+      - p2p-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9000"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 3s
 
-  peer2peer_dev:
-    build:
-      context: .
-      dockerfile: dev.dockerfile
-    image: peer2peer-dev:latest
-    container_name: peer2peer-dev-node
-    volumes:
-      - .:/app
-    environment:
-      - UID=${UID:-1000}
-      - GID=${GID:-1000}
+  # ── Nodes ────────────────────────────────────────────────────────────────────
+  # Each node runs in daemon mode so the control socket (/tmp/p2p.sock) is
+  # available inside the container.
+  #
+  # To open an interactive shell on any node:
+  #   docker exec -it p2p-node-01 /app/p2p shell
+  #
+  # Shell commands:
+  #   /peers          — list connected peers
+  #   /msg <n> <txt>  — send encrypted message to peer n
+  #   /all <txt>      — broadcast to all peers
+  #   /msgs           — show received messages
+  #   /quit           — exit shell
+
+  node-01:
+    <<: *node
+    container_name: p2p-node-01
+    command: daemon --port 9001 --coordinator coordinator:9000
+
+  node-02:
+    <<: *node
+    container_name: p2p-node-02
+    command: daemon --port 9002 --coordinator coordinator:9000
+
+  node-03:
+    <<: *node
+    container_name: p2p-node-03
+    command: daemon --port 9003 --coordinator coordinator:9000
+
+  node-04:
+    <<: *node
+    container_name: p2p-node-04
+    command: daemon --port 9004 --coordinator coordinator:9000
+
+  node-05:
+    <<: *node
+    container_name: p2p-node-05
+    command: daemon --port 9005 --coordinator coordinator:9000
+
+  node-06:
+    <<: *node
+    container_name: p2p-node-06
+    command: daemon --port 9006 --coordinator coordinator:9000
+
+  node-07:
+    <<: *node
+    container_name: p2p-node-07
+    command: daemon --port 9007 --coordinator coordinator:9000
+
+  node-08:
+    <<: *node
+    container_name: p2p-node-08
+    command: daemon --port 9008 --coordinator coordinator:9000
+
+  node-09:
+    <<: *node
+    container_name: p2p-node-09
+    command: daemon --port 9009 --coordinator coordinator:9000
+
+  node-10:
+    <<: *node
+    container_name: p2p-node-10
+    command: daemon --port 9010 --coordinator coordinator:9000

@@ -6,7 +6,8 @@ RUN apk add --no-cache \
     meson \
     ninja \
     pkgconf \
-    openssl-dev
+    openssl-dev \
+    libsodium-dev
 
 WORKDIR /src
 
@@ -14,13 +15,17 @@ COPY meson.build .
 COPY src/ src/
 
 RUN CC=gcc-14 CXX=g++-14 meson setup build --buildtype=release && \
-    meson compile -C build
+    meson compile -C build p2p
 
 FROM cgr.dev/chainguard/wolfi-base AS runtime
 
-RUN apk add --no-cache libstdc++ openssl
+RUN apk add --no-cache \
+    libstdc++ \
+    openssl \
+    libsodium \
+    netcat-openbsd
 
 WORKDIR /app
 COPY --from=builder /src/build/p2p .
 
-ENTRYPOINT ["./p2p"]
+ENTRYPOINT ["/app/p2p"]
