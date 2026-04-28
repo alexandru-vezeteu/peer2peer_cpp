@@ -40,6 +40,7 @@ p2p_sources = crypto_sources + [
   'src/net/tcp.cpp',
   'src/protocol/wire.cpp',
   'src/session/session.cpp',
+  'src/transfer/chunker.cpp',
   'src/coordinator/coordinator.cpp',
   'src/node/node.cpp',
 ]
