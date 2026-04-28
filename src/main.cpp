@@ -76,6 +76,25 @@ static void run_shell(const std::string& socket_path)
         }
     };
 
+    // Reverse the daemon-side escape_ctl encoding.
+    auto unescape_ctl = [](const std::string& s) {
+        std::string out;
+        out.reserve(s.size());
+        for (size_t i = 0; i < s.size(); ++i) {
+            if (s[i] == '\\' && i + 1 < s.size()) {
+                switch (s[i + 1]) {
+                case 'n':  out += '\n'; ++i; break;
+                case 'r':  out += '\r'; ++i; break;
+                case '\\': out += '\\'; ++i; break;
+                default:   out += s[i];      break;
+                }
+            } else {
+                out += s[i];
+            }
+        }
+        return out;
+    };
+
     auto do_recv = [&]() {
         send_cmd("RECV");
         auto hdr = reader.read_line();
@@ -83,12 +102,42 @@ static void run_shell(const std::string& socket_path)
         int count = 0;
         try { count = std::stoi(hdr->substr(5)); } catch (...) { return; }
         for (int i = 0; i < count; ++i) {
-            auto line = reader.read_line();
-            if (!line) break;
-            auto sp = line->find(' ');
-            if (sp != std::string::npos)
-                std::cout << "  \033[32m[" << line->substr(0, sp) << "]\033[0m "
-                          << line->substr(sp + 1) << "\n";
+            auto esc = reader.read_line();
+            if (!esc) break;
+            auto sp = esc->find(' ');
+            if (sp == std::string::npos) continue;
+
+            const std::string pk   = esc->substr(0, sp);
+            const std::string text = unescape_ctl(esc->substr(sp + 1));
+
+            // Count non-printable bytes (excluding common whitespace) to detect binary.
+            size_t non_text = 0;
+            for (unsigned char c : text)
+                if (c != '\n' && c != '\r' && c != '\t' && (c < 0x20 || c == 0x7f))
+                    ++non_text;
+
+            std::cout << "  \033[32m[" << pk << "]\033[0m ";
+
+            if (!text.empty() && non_text > text.size() / 10) {
+                std::cout << "<binary, " << text.size() << " bytes>\n";
+                continue;
+            }
+
+            // Show up to 5 lines; summarise if the message is longer.
+            constexpr size_t MAX_LINES  = 5;
+            const std::string cont(13, ' '); // continuation indent
+            size_t lines = 0, pos = 0;
+            while (pos < text.size() && lines < MAX_LINES) {
+                auto nl  = text.find('\n', pos);
+                auto eol = (nl == std::string::npos) ? text.size() : nl;
+                if (lines > 0) std::cout << cont;
+                std::cout << text.substr(pos, eol - pos) << "\n";
+                ++lines;
+                pos = (nl == std::string::npos) ? text.size() : nl + 1;
+            }
+            if (pos < text.size())
+                std::cout << cont << "\033[2m... (" << text.size() << " bytes)\033[0m\n";
+            if (lines == 0) std::cout << "(empty)\n";
         }
     };
 
@@ -99,11 +148,12 @@ static void run_shell(const std::string& socket_path)
     std::cout << "║          P2P Node Interactive Shell          ║\n";
     std::cout << "╚══════════════════════════════════════════════╝\n";
     std::cout << "\033[0m";
-    std::cout << "  /peers           — list connected peers\n";
-    std::cout << "  /msg <n> <text>  — send encrypted message to peer n\n";
-    std::cout << "  /all <text>      — broadcast to all peers\n";
-    std::cout << "  /msgs            — show received messages\n";
-    std::cout << "  /quit            — exit shell\n\n";
+    std::cout << "  /peers              — list connected peers\n";
+    std::cout << "  /msg  <n> <text>    — send encrypted message to peer n\n";
+    std::cout << "  /file <n> <path>    — send a file to peer n (chunked)\n";
+    std::cout << "  /all  <text>        — broadcast to all peers\n";
+    std::cout << "  /msgs               — show received messages\n";
+    std::cout << "  /quit               — exit shell\n\n";
 
     std::cout << "Peers at startup:\n";
     do_list();
@@ -136,6 +186,11 @@ static void run_shell(const std::string& socket_path)
             auto resp = reader.read_line();
             if (resp) std::cout << "  " << *resp << "\n";
 
+        } else if (line.size() > 6 && line.substr(0, 6) == "/file ") {
+            send_cmd("SENDFILE " + line.substr(6));
+            auto resp = reader.read_line();
+            if (resp) std::cout << "  " << *resp << "\n";
+
         } else if (line.size() > 5 && line.substr(0, 5) == "/all ") {
             send_cmd("BROADCAST " + line.substr(5));
             auto resp = reader.read_line();
@@ -143,7 +198,7 @@ static void run_shell(const std::string& socket_path)
 
         } else {
             std::cout << "  Unknown command. "
-                         "Try /peers, /msg <n> <text>, /all <text>, /msgs, /quit\n";
+                         "Try /peers, /msg, /file, /all, /msgs, /quit\n";
         }
     }
 
