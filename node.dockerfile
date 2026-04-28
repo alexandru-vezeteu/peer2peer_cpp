@@ -27,5 +27,6 @@ RUN apk add --no-cache \
 
 WORKDIR /app
 COPY --from=builder /src/build/p2p .
+COPY node-entrypoint.sh entrypoint.sh
 
-ENTRYPOINT ["/app/p2p"]
+ENTRYPOINT ["/app/entrypoint.sh"]
