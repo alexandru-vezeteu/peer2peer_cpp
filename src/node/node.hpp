@@ -12,6 +12,7 @@
 #include "net/tcp.hpp"
 #include "protocol/wire.hpp"
 #include "session/session.hpp"
+#include "transfer/chunker.hpp"
 
 struct node_config {
     uint16_t    listen_port;
@@ -20,13 +21,14 @@ struct node_config {
 };
 
 // Bundles a live session with its TCP connection.
-// send_msg() is mutex-protected so the main thread and recv threads coexist.
-// recv_msg() must be called from exactly one thread (the dedicated recv thread).
+// send_msg() / send_chunked_msg() are mutex-protected so the main thread and
+// recv threads coexist.  recv_msg() must be called from exactly one thread.
 struct peer_conn {
-    session        sess;
-    tcp_connection conn;
-    std::mutex     send_mu;
-    uint16_t       listen_port{0}; // peer's declared listen port (0 = unknown / inbound)
+    session          sess;
+    tcp_connection   conn;
+    std::mutex       send_mu;
+    uint16_t         listen_port{0}; // peer's declared listen port (0 = unknown / inbound)
+    transfer_registry chunks;        // per-peer chunk reassembly state (recv thread only)
 
     peer_conn(session s, tcp_connection c, uint16_t lport = 0)
         : sess(std::move(s)), conn(std::move(c)), listen_port(lport) {}
@@ -35,6 +37,15 @@ struct peer_conn {
     {
         std::lock_guard lock(send_mu);
         return sess.send(conn, data);
+    }
+
+    // Splits data into ≤chunk_size chunks and sends each as an encrypted session
+    // message.  Returns true when all chunks were sent successfully.
+    bool send_chunked_msg(std::span<const uint8_t> data,
+                          size_t chunk_size = CHUNK_PAYLOAD_SIZE)
+    {
+        std::lock_guard lock(send_mu);
+        return ::send_chunked(sess, conn, data, chunk_size) > 0;
     }
 
     std::optional<std::vector<uint8_t>> recv_msg()
@@ -73,6 +84,7 @@ private:
     void handle_control_client(int fd);
     void ctl_list(int fd);
     void ctl_send(int fd, const std::string& args);
+    void ctl_send_file(int fd, const std::string& args);
     void ctl_broadcast(int fd, const std::string& msg_text);
     void ctl_recv(int fd);
 

@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstring>
+#include <fstream>
 #include <iostream>
 #include <string>
 #include <thread>
@@ -224,12 +225,26 @@ void node::recv_loop(std::shared_ptr<peer_conn> pc)
     while (true) {
         auto msg = pc->recv_msg();
         if (!msg) break;
-        std::string text(msg->begin(), msg->end());
-        std::cout << "[" << pk_hex << "] " << text << "\n";
 
+        std::optional<std::string> text;
+        auto span = std::span<const uint8_t>(*msg);
+
+        if (auto ci = parse_chunk_frame(span)) {
+            // Accumulate; deliver only when the last chunk completes the transfer.
+            auto assembled = pc->chunks.ingest(
+                ci->transfer_id, ci->index, ci->total, ci->data);
+            if (assembled)
+                text = std::string(assembled->begin(), assembled->end());
+        } else {
+            text = std::string(msg->begin(), msg->end());
+        }
+
+        if (!text) continue;
+
+        std::cout << "[" << pk_hex << "] " << *text << "\n";
         std::lock_guard lock(msgs_mu_);
         if (received_msgs_.size() >= 200) received_msgs_.pop_front();
-        received_msgs_.push_back({std::string(pk_hex), text});
+        received_msgs_.push_back({std::string(pk_hex), *text});
     }
 }
 
@@ -253,8 +268,12 @@ void node::broadcast(std::span<const uint8_t> msg)
     std::vector<std::shared_ptr<peer_conn>> snap;
     { std::lock_guard lock(peers_mu_); snap = peers_; }
     if (snap.empty()) { std::cout << "[node] no peers connected yet\n"; return; }
-    for (auto& pc : snap)
-        if (!pc->send_msg(msg)) std::cerr << "[node] send failed to a peer\n";
+    for (auto& pc : snap) {
+        bool ok = (msg.size() > CHUNK_PAYLOAD_SIZE)
+                ? pc->send_chunked_msg(msg)
+                : pc->send_msg(msg);
+        if (!ok) std::cerr << "[node] send failed to a peer\n";
+    }
 }
 
 // ── Control server ────────────────────────────────────────────────────────────
@@ -302,6 +321,8 @@ void node::handle_control_client(int fd)
             ctl_send(fd, cmd.substr(5));
         else if (cmd.size() > 10 && cmd.substr(0, 10) == "BROADCAST ")
             ctl_broadcast(fd, cmd.substr(10));
+        else if (cmd.size() > 9 && cmd.substr(0, 9) == "SENDFILE ")
+            ctl_send_file(fd, cmd.substr(9));
         else if (cmd == "RECV")
             ctl_recv(fd);
         else if (cmd == "QUIT")
@@ -352,9 +373,45 @@ void node::ctl_send(int fd, const std::string& args)
         target = peers_[static_cast<size_t>(idx - 1)];
     }
 
-    bool ok = target->send_msg(std::span<const uint8_t>(
-        reinterpret_cast<const uint8_t*>(text.data()), text.size()));
+    auto bytes = std::span<const uint8_t>(
+        reinterpret_cast<const uint8_t*>(text.data()), text.size());
+    bool ok = (text.size() > CHUNK_PAYLOAD_SIZE)
+            ? target->send_chunked_msg(bytes)
+            : target->send_msg(bytes);
     ctl_write(fd, ok ? "OK" : "ERR send failed");
+}
+
+void node::ctl_send_file(int fd, const std::string& args)
+{
+    auto sp = args.find(' ');
+    if (sp == std::string::npos) { ctl_write(fd, "ERR usage: SENDFILE <idx> <path>"); return; }
+
+    int idx = 0;
+    try { idx = std::stoi(args.substr(0, sp)); }
+    catch (...) { ctl_write(fd, "ERR invalid index"); return; }
+
+    const std::string path = args.substr(sp + 1);
+
+    std::ifstream file(path, std::ios::binary);
+    if (!file) { ctl_write(fd, "ERR cannot open: " + path); return; }
+
+    std::vector<uint8_t> data(
+        (std::istreambuf_iterator<char>(file)),
+        std::istreambuf_iterator<char>());
+    if (data.empty()) { ctl_write(fd, "ERR file is empty"); return; }
+
+    std::shared_ptr<peer_conn> target;
+    {
+        std::lock_guard lock(peers_mu_);
+        if (idx < 1 || static_cast<size_t>(idx) > peers_.size()) {
+            ctl_write(fd, "ERR peer index out of range");
+            return;
+        }
+        target = peers_[static_cast<size_t>(idx - 1)];
+    }
+
+    bool ok = target->send_chunked_msg(data);
+    ctl_write(fd, ok ? "OK " + std::to_string(data.size()) + " bytes" : "ERR send failed");
 }
 
 void node::ctl_broadcast(int fd, const std::string& text)
@@ -365,10 +422,27 @@ void node::ctl_broadcast(int fd, const std::string& text)
     int count = 0;
     auto bytes = std::span<const uint8_t>(
         reinterpret_cast<const uint8_t*>(text.data()), text.size());
-    for (auto& pc : snap)
-        if (pc->send_msg(bytes)) ++count;
+    const bool use_chunks = text.size() > CHUNK_PAYLOAD_SIZE;
+    for (auto& pc : snap) {
+        bool ok = use_chunks ? pc->send_chunked_msg(bytes) : pc->send_msg(bytes);
+        if (ok) ++count;
+    }
 
     ctl_write(fd, "OK " + std::to_string(count));
+}
+
+// Escape newlines/backslashes so each message fits on exactly one control-socket line.
+static std::string escape_ctl(const std::string& s)
+{
+    std::string out;
+    out.reserve(s.size());
+    for (unsigned char c : s) {
+        if      (c == '\\') out += "\\\\";
+        else if (c == '\n') out += "\\n";
+        else if (c == '\r') out += "\\r";
+        else                out += static_cast<char>(c);
+    }
+    return out;
 }
 
 void node::ctl_recv(int fd)
@@ -381,6 +455,6 @@ void node::ctl_recv(int fd)
     }
     std::string resp = "MSGS " + std::to_string(msgs.size()) + "\n";
     for (const auto& [pk, text] : msgs)
-        resp += pk + " " + text + "\n";
+        resp += pk + " " + escape_ctl(text) + "\n";
     ctl_write_raw(fd, resp);
 }
