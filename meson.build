@@ -110,3 +110,14 @@ integration_test = executable('integration_test',
 )
 
 test('integration', integration_test, timeout : 30)
+
+# ── Node communication + chunking tests ───────────────────────────────────────
+
+node_comms_test = executable('node_comms_test',
+  sources             : ['src/tests/integration/node_comms_test.cpp']
+                        + integration_sources,
+  include_directories : inc,
+  dependencies        : [sodium_dep, threads],
+)
+
+test('node_comms', node_comms_test, timeout : 60)
